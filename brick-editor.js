@@ -6,15 +6,34 @@ function start_brick_editor() {
         '        this.age = age;',
         '    }',
         '}',
+        '// comments are pink',
         'Person.prototype.getAge = function () {',
         '    return this.age;',
         '};'
     ].join('\n');
 
+    // defines a custom theme with varied color text
+    monaco.editor.defineTheme('customTheme', {
+        base: 'vs', // can also be vs-dark or hc-black
+        inherit: true, // can also be false to completely replace the builtin rules
+        // set comment color
+        rules: [
+            { token: 'comment.js', foreground: 'ff0066', fontStyle: 'bold' },
+        ],
+        // set editor background color
+        colors: {
+            'editor.background': '#EDF9FA',
+    }
+    });
+
     var editor = monaco.editor.create(document.getElementById("container"), {
         value: jsCode,
-        language: "javascript"
+        language: "javascript",
+        theme: "customTheme"
+        
     });
+
+    editor.colorize();
 
     var myCondition1 = editor.createContextKey(/*key name*/'myCondition1', /*default value*/false);
     var myCondition2 = editor.createContextKey(/*key name*/'myCondition2', /*default value*/false);

@@ -8,7 +8,8 @@ An editor to help beginners transition from block-based languages.
 
 2. Clone this repository and go into that folder:
 
-		git clone https://github.com/oxy-compsci/brick-editor.git && cd brick-editor
+		git clone https://github.com/oxy-compsci/brick-editor.git
+		cd brick-editor
 
 3. Install the necessary `npm` modules:
 

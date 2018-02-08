@@ -33,8 +33,6 @@ function start_brick_editor() {
         
     });
 
-    editor.colorize();
-
     var myCondition1 = editor.createContextKey(/*key name*/'myCondition1', /*default value*/false);
     var myCondition2 = editor.createContextKey(/*key name*/'myCondition2', /*default value*/false);
 

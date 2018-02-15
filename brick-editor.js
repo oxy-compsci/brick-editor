@@ -6,7 +6,7 @@ function start_brick_editor() {
         '        this.age = age;',
         '    }',
         '}',
-        '// comments are pink',
+        '// comment',
         'Person.prototype.getAge = function () {',
         '    return this.age;',
         '};'
@@ -28,25 +28,64 @@ function start_brick_editor() {
 
     var editor = monaco.editor.create(document.getElementById("container"), {
         value: jsCode,
-        language: "javascript",
+        language: "typescript",
         theme: "customTheme"
         
     });
 
-    var myCondition1 = editor.createContextKey(/*key name*/'myCondition1', /*default value*/false);
-    var myCondition2 = editor.createContextKey(/*key name*/'myCondition2', /*default value*/false);
+    editor.addCommand(monaco.KeyCode.KEY_I && monaco.KeyCode.KEY_F, function () {
 
-    editor.addCommand(monaco.KeyCode.Tab, function() {
-        // services available in `ctx`
-        alert('my command is executing!');
+        addIfStatement();
 
-    }, 'myCondition1 && myCondition2')
+    })
 
-    myCondition1.set(true);
+    // adds an if statement at cursor position with correct indentation
+    function addIfStatement() {
+        var buffer = editor.getValue();
+        var position = editor.getPosition();
+        var firstPart = getBeforeCursor(buffer, position);
+        var lastPart = getAfterCursor(buffer, position);
+        var indent = getIndent();
+        var ifBlock = [firstPart, "f (i == true) {\n", indent, "\t", "// do something \n", indent, "}", lastPart].join("");
+        //var ifBlock = ifStatement.join("");
+        editor.setValue(ifBlock);
+        
+    }
+    
+    // returns a string containing characters before cursor position
+    function getBeforeCursor(buffer, position) {
+        var splitBuffer = buffer.split("\n");
+        var firstPart = splitBuffer.slice(0, position.lineNumber - 1);
+        var sameLine = splitBuffer.slice(position.lineNumber - 1, position.lineNumber);
+        sameLine = sameLine.slice(0, position.column);
+        firstPart.push(sameLine);
+        var firstPart1 = firstPart.join("\n");
+        
+        return firstPart1;
+    }
+    
+    // returns a string containing characters after cursor position
+    function getAfterCursor(buffer, position) {
+        var splitBuffer = buffer.split("\n");                                               // split string into array of lines
+        var lastPart = splitBuffer.slice(position.lineNumber);                              // select only the lines after the cursor
+        var sameLine = splitBuffer.slice(position.lineNumber, position.lineNumber + 1);     // select the cursors line
+        sameLine = sameLine.slice(position.column);                                         // select only the characters after the cursor in the line
+        lastPart.unshift(sameLine);                                                         // add those characters to the beginning of the array
+        var lastPart1 = lastPart.join("\n");                                                // join all the array elements into a string
 
-    setTimeout(function() {
-        alert('now enabling also myCondition2, try pressing Tab!');
-        myCondition2.set(true);
-        // you can use myCondition2.reset() to go back to the default
-    }, 10000);
+        return lastPart1;                                                                   // return the string
+    }
+
+    // add a tab for every four spaces before cursor position for correct indenting
+    function getIndent() {
+        var tabs = "";
+        var position = editor.getPosition();
+        for (var i = 0; i < position.column - 2; i=i+4) {
+            tabs += "\t";
+        }
+        return tabs;                                                              
+    }
+
+
+  
 }

@@ -45,11 +45,36 @@ function start_brick_editor() {
 
     });
 
-    editor.addCommand(monaco.KeyCode.KEY_F & monaco.KeyCode.KEY_U & monaco.KeyCode.KEY_N & monaco.KeyCode.KEY_C & monaco.KeyCode.KEY_T & monaco.KeyCode.KEY_I & monaco.KeyCode.KEY_O & monaco.KeyCode.KEY_N, function () {
+    editor.addCommand(monaco.KeyCode.KEY_F && monaco.KeyCode.KEY_U && monaco.KeyCode.KEY_N && monaco.KeyCode.KEY_C && monaco.KeyCode.KEY_T && monaco.KeyCode.KEY_I && monaco.KeyCode.KEY_O && monaco.KeyCode.KEY_N, function () {
 
         addFunctionStatement();
 
     });
+
+    editor.addCommand(monaco.KeyCode.KEY_V && monaco.KeyCode.KEY_A && monaco.KeyCode.KEY_R, function () {
+
+        addVarStatement();
+
+    });
+
+    editor.addCommand(monaco.KeyCode.KEY_V && monaco.KeyCode.KEY_A && monaco.KeyCode.KEY_R, function () {
+
+        addVarStatement();
+
+    });
+
+    //
+
+    //adds an function that does variable declaration
+    function addVarStatement(){
+        var buffer = editor.getValue();
+        var position = editor.getPosition();
+        var firstPart = getBeforeCursor(buffer, position);
+        var lastPart = getAfterCursor(buffer, position);
+        var indent = getIndent();
+        var varBlock = [firstPart, "r nameOfVariable =  1 ; ", lastPart].join("");
+        editor.setValue(varBlock);
+    }
 
     //adds an function statement at cursor position
     function addFunctionStatement(){
@@ -58,7 +83,7 @@ function start_brick_editor() {
         var firstPart = getBeforeCursor(buffer, position);
         var lastPart = getAfterCursor(buffer, position);
         var indent = getIndent();
-        var functionBlock = [firstPart, "n nameOfFunction(parameter1, parameter2, parameter3) {\n", indent, "\t", "// place here the code to be executed \n", indent, "}", lastPart].join("");
+        var functionBlock = [firstPart, "n nameOfFunction(parameter1, parameter2, parameter3) {\n", indent, "\t", "return // place here the code to be executed \n", indent, "}", lastPart].join("");
         editor.setValue(functionBlock);
     }
 

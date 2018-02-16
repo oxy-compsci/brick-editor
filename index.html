@@ -6,15 +6,23 @@
 </head>
 <body style="background-color:cadetblue">
     <!--Edit title, color, font-size, alignment-->
-<h1 id="title" style="font-size:50px;color:black;"><center>Brick Editor</center></h1>
-    <!--Edit container alignment, border, size-->
-<div id="container" style="margin-left:600px;padding-right:100px;width:800px;height:600px;border:3px solid #006666;"></div>
+    <h1 id="title" style="font-size:50px;color:black;text-align:center">Brick Editor</h1>
+    <!--Create if Button-->
+    <button type="button" onclick="addBlock('if')">if</button>
+    <button type="button" onclick="addBlock('for')">for</button>
+    <button type="button" onclick="addBlock('while')">while</button>
+    <button type="button" onclick="addBlock('function')">function</button>
+    <button type="button" onclick="addBlock('var')">variable</button>
 
-<script src="../node_modules/monaco-editor/min/vs/loader.js"></script>
-<script src="brick-editor.js"></script>
-<script>
+
+    <script src="../node_modules/monaco-editor/min/vs/loader.js"></script>
+    <script src="brick-editor.js"></script>
+    <script>
 	require.config({ paths: { 'vs': '../node_modules/monaco-editor/min/vs' }});
 	require(['vs/editor/editor.main'], start_brick_editor);
-</script>
+    </script>
+    <!--Edit container alignment, border, size-->
+    <div id="container" style="margin-left:600px;padding-right:100px;width:800px;height:600px;border:3px solid #006666;"></div>
+
 </body>
 </html>

@@ -1,3 +1,7 @@
+var editor;
+var position;
+var blockDict = {};
+
 function start_brick_editor() {
     var jsCode = [
         '"use strict";',
@@ -26,146 +30,71 @@ function start_brick_editor() {
     }
     });
 
-    var editor = monaco.editor.create(document.getElementById("container"), {
+    editor = monaco.editor.create(document.getElementById("container"), {
         value: jsCode,
         language: "typescript",
         theme: "customTheme"
 
     });
 
-    editor.addCommand(monaco.KeyCode.KEY_I && monaco.KeyCode.KEY_F, function () {
-
-        addIfStatement();
-
+    editor.onMouseLeave(function (e) {
+        position = editor.getPosition();
+        console.log(position);
     });
 
-    editor.addCommand(monaco.KeyCode.KEY_W && monaco.KeyCode.KEY_H && monaco.KeyCode.KEY_I && monaco.KeyCode.KEY_L && monaco.KeyCode.KEY_E, function () {
+}
 
-        addWhileStatement();
-
-    });
-
-    editor.addCommand(monaco.KeyCode.KEY_F && monaco.KeyCode.KEY_U && monaco.KeyCode.KEY_N && monaco.KeyCode.KEY_C && monaco.KeyCode.KEY_T && monaco.KeyCode.KEY_I && monaco.KeyCode.KEY_O && monaco.KeyCode.KEY_N, function () {
-
-        addFunctionStatement();
-
-    });
-
-    editor.addCommand(monaco.KeyCode.KEY_V && monaco.KeyCode.KEY_A && monaco.KeyCode.KEY_R, function () {
-
-        addVarStatement();
-
-    });
-
-    editor.addCommand(monaco.KeyCode.KEY_F && monaco.KeyCode.KEY_O && monaco.KeyCode.KEY_R, function () {
-
-        addForStatement();
-
-    });
-
-    editor.addCommand(monaco.KeyCode.KEY_A && monaco.KeyCode.KEY_R && monaco.KeyCode.KEY_R && monaco.KeyCode.KEY_A && monaco.KeyCode.KEY_Y, function () {
-
-        addArrayAssignmentStatement();
-
-    });
-    //adds an function that assigns arrays
-    function addArrayAssignmentStatement(){
-        var buffer = editor.getValue();
-        var position = editor.getPosition();
-        var firstPart = getBeforeCursor(buffer, position);
-        var lastPart = getAfterCursor(buffer, position);
-        var indent = getIndent();
-        var arrayAssignmentBlock = [firstPart, "var array_name[:datatype]; //declaration \n", indent, "\t", "array_name = [val1,val2,valn..]; //initialization \n", indent, lastPart].join("");
-        editor.setValue(arrayAssignmentBlock);
+// add a tab for every four spaces before cursor position for correct indenting
+var tabs;
+function getIndent(position) {
+    tabs = "";
+    for (var i = 0; i < position.column - 2; i = i + 4) {
+        tabs += "\t";
     }
-    //adds an function that does for loops
-    function addForStatement(){
-        var buffer = editor.getValue();
-        var position = editor.getPosition();
-        var firstPart = getBeforeCursor(buffer, position);
-        var lastPart = getAfterCursor(buffer, position);
-        var indent = getIndent();
-        var forBlock = [firstPart, "r (i = 0; i < something, i++ /*way i changes*/) {\n", indent, "\t", "// place here the code to be executed \n", indent, "}", lastPart].join("");
-        editor.setValue(forBlock);
-    }
+    return tabs;
+}
+
+// adds a block based on key
+function addBlock(word) {
+    tabs = getIndent(position);
+    var buffer = editor.getValue();
+    var firstPart = getBeforeCursor(buffer, position);
+    var lastPart = getAfterCursor(buffer, position);
+
+    // initialize dictionary
+    var blockDict = {
+        'if': "if (i == true) {\n" + tabs + "\t" + "// do something \n" + tabs + "}",
+        'for': "for (var i = 0; i < value; i++){\n" + tabs + "\t // do something \n" + tabs + "}",
+        'while': "while (i < 10) {\n" + tabs + "\t" + "// do something \n" + tabs + "}",
+        'function': "function name(parameters) {\n" + tabs + "\t // do something \n" + tabs + "\t return value;\n" + tabs + "}",
+        'var': "var variableName = value;",
+    };
+
+    var block = [firstPart, blockDict[word], lastPart].join("");
+    editor.setValue(block);
+}
 
 
-    //adds an function that does variable declaration
-    function addVarStatement(){
-        var buffer = editor.getValue();
-        var position = editor.getPosition();
-        var firstPart = getBeforeCursor(buffer, position);
-        var lastPart = getAfterCursor(buffer, position);
-        var indent = getIndent();
-        var varBlock = [firstPart, "r nameOfVariable =  1 ; ", lastPart].join("");
-        editor.setValue(varBlock);
-    }
+// returns a string containing characters before cursor position
+function getBeforeCursor(buffer, position) {
+    var splitBuffer = buffer.split("\n");
+    var firstPart = splitBuffer.slice(0, position.lineNumber - 1);
+    var sameLine = splitBuffer.slice(position.lineNumber - 1, position.lineNumber);
+    sameLine = sameLine.slice(0, position.column);
+    firstPart.push(sameLine);
+    var firstPart1 = firstPart.join("\n");
 
-    //adds an function statement at cursor position
-    function addFunctionStatement(){
-        var buffer = editor.getValue();
-        var position = editor.getPosition();
-        var firstPart = getBeforeCursor(buffer, position);
-        var lastPart = getAfterCursor(buffer, position);
-        var indent = getIndent();
-        var functionBlock = [firstPart, "n nameOfFunction(parameter1, parameter2, parameter3) {\n", indent, "\t", "return // place here the code to be executed \n", indent, "}", lastPart].join("");
-        editor.setValue(functionBlock);
-    }
+    return firstPart1;
+}
 
-    //adds an while statement at cursor position
-    function addWhileStatement(){
-        var buffer = editor.getValue();
-        var position = editor.getPosition();
-        var firstPart = getBeforeCursor(buffer, position);
-        var lastPart = getAfterCursor(buffer, position);
-        var indent = getIndent();
-        var whileBlock = [firstPart, "e (i < 10) {\n", indent, "\t", "// place here the code to be executed \n", indent, "}", lastPart].join("");
-        editor.setValue(whileBlock);
-    }
-    // adds an if statement at cursor position with correct indentation
-    function addIfStatement() {
-        var buffer = editor.getValue();
-        var position = editor.getPosition();
-        var firstPart = getBeforeCursor(buffer, position);
-        var lastPart = getAfterCursor(buffer, position);
-        var indent = getIndent();
-        var ifBlock = [firstPart, "f (i == true) {\n", indent, "\t", "// do something \n", indent, "}", lastPart].join("");
-        //var ifBlock = ifStatement.join("");
-        editor.setValue(ifBlock);
+// returns a string containing characters after cursor position
+function getAfterCursor(buffer, position) {
+    var splitBuffer = buffer.split("\n");                                               // split string into array of lines
+    var lastPart = splitBuffer.slice(position.lineNumber);                              // select only the lines after the cursor
+    var sameLine = splitBuffer.slice(position.lineNumber, position.lineNumber + 1);     // select the cursors line
+    sameLine = sameLine.slice(position.column);                                         // select only the characters after the cursor in the line
+    lastPart.unshift(sameLine);                                                         // add those characters to the beginning of the array
+    var lastPart1 = lastPart.join("\n");                                                // join all the array elements into a string
 
-    }
-
-    // returns a string containing characters before cursor position
-    function getBeforeCursor(buffer, position) {
-        var splitBuffer = buffer.split("\n");
-        var firstPart = splitBuffer.slice(0, position.lineNumber - 1);
-        var sameLine = splitBuffer.slice(position.lineNumber - 1, position.lineNumber);
-        sameLine = sameLine.slice(0, position.column);
-        firstPart.push(sameLine);
-        var firstPart1 = firstPart.join("\n");
-
-        return firstPart1;
-    }
-
-    // returns a string containing characters after cursor position
-    function getAfterCursor(buffer, position) {
-        var splitBuffer = buffer.split("\n");                                               // split string into array of lines
-        var lastPart = splitBuffer.slice(position.lineNumber);                              // select only the lines after the cursor
-        var sameLine = splitBuffer.slice(position.lineNumber, position.lineNumber + 1);     // select the cursors line
-        sameLine = sameLine.slice(position.column);                                         // select only the characters after the cursor in the line
-        lastPart.unshift(sameLine);                                                         // add those characters to the beginning of the array
-        var lastPart1 = lastPart.join("\n");                                                // join all the array elements into a string
-
-        return lastPart1;                                                                   // return the string
-    }
-
-    // add a tab for every four spaces before cursor position for correct indenting
-    function getIndent() {
-        var tabs = "";
-        var position = editor.getPosition();
-        for (var i = 0; i < position.column - 2; i=i+4) {
-            tabs += "\t";
-        }
-        return tabs;
-    }
+    return lastPart1;                                                                   // return the string
 }

@@ -57,13 +57,38 @@ function start_brick_editor() {
 
     });
 
-    editor.addCommand(monaco.KeyCode.KEY_V && monaco.KeyCode.KEY_A && monaco.KeyCode.KEY_R, function () {
+    editor.addCommand(monaco.KeyCode.KEY_F && monaco.KeyCode.KEY_O && monaco.KeyCode.KEY_R, function () {
 
-        addVarStatement();
+        addForStatement();
 
     });
 
-    //
+    editor.addCommand(monaco.KeyCode.KEY_A && monaco.KeyCode.KEY_R && monaco.KeyCode.KEY_R && monaco.KeyCode.KEY_A && monaco.KeyCode.KEY_Y, function () {
+
+        addArrayAssignmentStatement();
+
+    });
+    //adds an function that assigns arrays
+    function addArrayAssignmentStatement(){
+        var buffer = editor.getValue();
+        var position = editor.getPosition();
+        var firstPart = getBeforeCursor(buffer, position);
+        var lastPart = getAfterCursor(buffer, position);
+        var indent = getIndent();
+        var arrayAssignmentBlock = [firstPart, "var array_name[:datatype]; //declaration \n", indent, "\t", "array_name = [val1,val2,valn..]; //initialization \n", indent, lastPart].join("");
+        editor.setValue(arrayAssignmentBlock);
+    }
+    //adds an function that does for loops
+    function addForStatement(){
+        var buffer = editor.getValue();
+        var position = editor.getPosition();
+        var firstPart = getBeforeCursor(buffer, position);
+        var lastPart = getAfterCursor(buffer, position);
+        var indent = getIndent();
+        var forBlock = [firstPart, "r (i = 0; i < something, i++ /*way i changes*/) {\n", indent, "\t", "// place here the code to be executed \n", indent, "}", lastPart].join("");
+        editor.setValue(forBlock);
+    }
+
 
     //adds an function that does variable declaration
     function addVarStatement(){

@@ -18,7 +18,7 @@ function start_brick_editor() {
 
     // defines a custom theme with varied color text
     monaco.editor.defineTheme('customTheme', {
-        base: 'vs', // can also be vs-dark or hc-black
+        base: 'vs-dark', // can also be vs-dark or hc-black
         inherit: true, // can also be false to completely replace the builtin rules
         // set comment color
         rules: [
@@ -26,7 +26,8 @@ function start_brick_editor() {
         ],
         // set editor background color
         colors: {
-            'editor.background': '#EDF9FA',
+            //'editor.background': '#EDF9FA',
+            'editor.lineHighlightBackground': '#800060',
     }
     });
 
@@ -39,7 +40,6 @@ function start_brick_editor() {
 
     editor.onMouseLeave(function (e) {
         position = editor.getPosition();
-        console.log(position);
     });
 
 }
@@ -54,7 +54,7 @@ function getIndent(position) {
     return tabs;
 }
 
-// adds a block based on key
+// adds a block based on word
 function addBlock(word) {
     tabs = getIndent(position);
     var buffer = editor.getValue();

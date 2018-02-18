@@ -1,0 +1,45 @@
+﻿body {
+    background-color: #333333;
+}
+
+.addButton {
+    border: solid black 1px;
+    color: white;
+    font-weight: 600;
+    padding-top:16px;
+    padding-bottom:16px;
+    width: 125px;
+    text-align: center;
+    text-decoration: none;
+    display:inline-block;
+    font-size: 16px;
+    margin-left:20px;
+    position:fixed;
+    border-radius:5px;
+}
+
+#container {
+    margin-left:25px;
+    padding-right: 100px;
+    width: 800px;
+    height: 600px;
+    border: 2px solid skyblue;
+    position:fixed;
+    display:inline-block;
+}
+
+#buttonContainer {
+    width: 500px;
+    height: 600px;
+    padding-left: 50px;
+    border: 2px solid skyblue;
+    background-color: #404040;
+    display: inline-block;
+}
+
+#title {
+    font-size: 50px;
+    color: white;
+    text-align: center;
+    font-family: HelvLight, 'Trebuchet MS', sans-serif;
+}

@@ -72,6 +72,7 @@ function addBlock(word) {
 
     var block = [firstPart, blockDict[word], lastPart].join("");
     editor.setValue(block);
+    editor.setPosition(position);
 }
 
 

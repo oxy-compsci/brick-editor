@@ -18,6 +18,7 @@
         <button type="button" class="addButton" onclick="addBlock('var')" style="background-color:coral;margin-top:325px;">VARIABLE</button>
     </div>
 
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
     <script src="../node_modules/monaco-editor/min/vs/loader.js"></script>
     <script src="brick-editor.js"></script>
     <script>
@@ -30,5 +31,12 @@
     </script>
     <!--Edit container alignment, border, size-->
     <div id="container"></div>
+    <script src="bundle.js"></script>
+    <script>
+        var recast = null;
+        $(function () {
+            recast = require("recast");
+        });
+    </script>
 </body>
 </html>

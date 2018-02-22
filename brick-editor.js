@@ -73,6 +73,9 @@ function addBlock(word) {
     var block = [firstPart, blockDict[word], lastPart].join("");
     editor.setValue(block);
     editor.setPosition(position);
+
+    var ast = recast.parse(editor.getValue());
+    console.log(recast.print(ast).code);
 }
 
 

@@ -63,12 +63,12 @@ function addBlock(word) {
 
     // initialize dictionary
     var blockDict = {
+        'var': "var variableName = value;",
         'if': "if (i == true) {\n" + tabs + "\t" + "// do something \n" + tabs + "}",
+        'if-else': "if (i == true) {\n" + tabs + "\t" + "// do something \n" + tabs + "} else {\n" + tabs + "\t" + "// do something \n" + tabs + "}",
         'for': "for (var i = 0; i < value; i++){\n" + tabs + "\t // do something \n" + tabs + "}",
         'while': "while (i < 10) {\n" + tabs + "\t" + "// do something \n" + tabs + "}",
         'function': "function name(parameters) {\n" + tabs + "\t // do something \n" + tabs + "\t return value;\n" + tabs + "}",
-        'var': "var variableName = value;",
-        'if-else': "if (i == true) {\n" + tabs + "\t" + "// do something \n" + tabs + "} else {\n" + tabs + "\t" + "// do something \n" + tabs + "}",
     };
 
     var block = [firstPart, blockDict[word], lastPart].join("");

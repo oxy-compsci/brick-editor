@@ -8,14 +8,13 @@
     border: solid black 1px;
     color: white;
     font-weight: 600;
-    padding: 25px;
+    padding: 25px 0;
     width: 125px;
     text-align: center;
-    display: inline-block;
     font-size: 16px;
     margin-left: 20px;
-    position: absolute;
     border-radius: 5px;
+    cursor:pointer;
 }
 
 #container {

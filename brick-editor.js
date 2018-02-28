@@ -1,6 +1,18 @@
 var editor;
 var position;
 var blockDict = {};
+var colorArray = [
+    'background-color:#ff3399', // fuschia
+    'background-color:darkgoldenrod',
+    'background-color:deepskyblue',
+    'background-color:limegreen',
+    'background-color:darkorchid',
+    'background-color:coral',
+    'background-color:orange']
+
+var keysArray = ['IF', 'IF-ELSE', 'FOR', 'WHILE', 'VARIABLE', 'FUNCTION'];
+
+document.body.onload = addBlocksHTML();
 
 function start_brick_editor() {
     var jsCode = [
@@ -63,19 +75,43 @@ function addBlock(word) {
 
     // initialize dictionary
     var blockDict = {
-        'var': "var variableName = value;",
-        'if': "if (i == true) {\n" + tabs + "\t" + "// do something \n" + tabs + "}",
-        'if-else': "if (i == true) {\n" + tabs + "\t" + "// do something \n" + tabs + "} else {\n" + tabs + "\t" + "// do something \n" + tabs + "}",
-        'for': "for (var i = 0; i < value; i++){\n" + tabs + "\t // do something \n" + tabs + "}",
-        'while': "while (i < 10) {\n" + tabs + "\t" + "// do something \n" + tabs + "}",
-        'function': "function name(parameters) {\n" + tabs + "\t // do something \n" + tabs + "\t return value;\n" + tabs + "}",
+        'VARIABLE': "var variableName = value;",
+        'IF': "if (i == true) {\n" + tabs + "\t" + "// do something \n" + tabs + "}",
+        'IF-ELSE': "if (i == true) {\n" + tabs + "\t" + "// do something \n" + tabs + "} else {\n" + tabs + "\t" + "// do something \n" + tabs + "}",
+        'FOR': "for (var i = 0; i < value; i++){\n" + tabs + "\t // do something \n" + tabs + "}",
+        'WHILE': "while (i < 10) {\n" + tabs + "\t" + "// do something \n" + tabs + "}",
+        'FUNCTION': "function name(parameters) {\n" + tabs + "\t // do something \n" + tabs + "\t return value;\n" + tabs + "}",
     };
 
     var block = [firstPart, blockDict[word], lastPart].join("");
     editor.setValue(block);
     editor.setPosition(position);
+
 }
 
+// adds all the blocks to the button container
+function addBlocksHTML() {
+    for (i in keysArray) {
+        var clickEvent = 'addBlock("' + keysArray[i] + '")';
+
+        // creates button and sets all attributes
+        var block = document.createElement("button");
+        block.setAttribute("type", "button");
+        block.setAttribute("class", "addButton");
+        block.setAttribute("style", colorArray[i]);
+        block.setAttribute("onclick", clickEvent);
+        var text = document.createTextNode(keysArray[i]);
+        block.appendChild(text);
+
+        // adds the new button inside the buttonContainer class at end
+        var existingElement = document.getElementById("buttonContainer");
+        existingElement.appendChild(block);
+
+        // adds a break element to make a column of blocks
+        var br = document.createElement("br");
+        existingElement.appendChild(br);
+    }
+}
 
 // returns a string containing characters before cursor position
 function getBeforeCursor(buffer, position) {

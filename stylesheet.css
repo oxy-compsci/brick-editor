@@ -1,7 +1,7 @@
 ﻿body {
     background-color: #333333;
     height: 100%;
-    width:100%;
+    width: 100%;
 }
 
 .addButton {
@@ -14,7 +14,7 @@
     font-size: 16px;
     margin-left: 20px;
     border-radius: 5px;
-    cursor:pointer;
+    cursor: pointer;
 }
 
 #container {
@@ -28,11 +28,12 @@
 
 #buttonContainer {
     width: 30%;
-    height: 600px;
-    margin-left:1%;
-    margin-top:1%;
-    margin-bottom:1%;
+    height: 550px;
+    margin-left: 1%;
+    margin-top: 1%;
+    margin-bottom: 1%;
     padding-left: 50px;
+    padding-top: 50px;
     border: 2px solid skyblue;
     background-color: #404040;
     display: inline-block;

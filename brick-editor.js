@@ -1,16 +1,39 @@
 var editor;
 var position;
-var blockDict = {};
-var colorArray = [
-    'background-color:#ff3399', // fuschia
-    'background-color:darkgoldenrod',
-    'background-color:deepskyblue',
-    'background-color:limegreen',
-    'background-color:darkorchid',
-    'background-color:coral',
-    'background-color:orange']
 
-var keysArray = ['IF', 'IF-ELSE', 'FOR', 'WHILE', 'VARIABLE', 'FUNCTION'];
+// initialize dictionary
+var blockDict = [
+    {
+        'blockName': 'IF',
+        'code': 'if (i == true) {\n' + tabs + '\t' + '// do something \n' + tabs + '}',
+        'buttonColor': '#ff3399', // fuschia
+    },
+    {
+        'blockName': 'IF-ELSE',
+        'code': 'if (i == true) {\n' + tabs + '\t' + '// do something \n' + tabs + '} else {\n' + tabs + '\t' + '// do something \n' + tabs + '}',
+        'buttonColor': '#b8860b', // darkgoldenrod
+    },
+    {
+        'blockName': 'FOR',
+        'code': 'for (var i = 0; i < value; i++){\n' + tabs + '\t // do something \n' + tabs + '}',
+        'buttonColor': '#00bfff', // deepskyblue
+    },
+    {
+        'blockName': 'WHILE',
+        'code': 'while (i < 10) {\n' + tabs + '\t' + '// do something \n' + tabs + '}',
+        'buttonColor': '#32cd32' // lime green
+    },
+    {
+        'blockName': 'VARIABLE',
+        'code': 'var variableName = value;',
+        'buttonColor': '#9932cc' // darkorchid
+    },
+    {
+        'blockName': 'FUNCTION',
+        'code': 'function name(parameters) {\n' + tabs + '\t // do something \n' + tabs + '\t return value;\n' + tabs + '}',
+        'buttonColor': '#ff7f50' // coral
+    },
+];
 
 document.body.onload = addBlocksHTML();
 
@@ -47,7 +70,7 @@ function start_brick_editor() {
         value: jsCode,
         language: "typescript",
         theme: "customTheme"
-
+ 
     });
 
     editor.onMouseLeave(function (e) {
@@ -67,49 +90,39 @@ function getIndent(position) {
 }
 
 // adds a block based on word
-function addBlock(word) {
+function addBlock(i, word) {
     tabs = getIndent(position);
     var buffer = editor.getValue();
     var firstPart = getBeforeCursor(buffer, position);
     var lastPart = getAfterCursor(buffer, position);
 
-    // initialize dictionary
-    var blockDict = {
-        'VARIABLE': "var variableName = value;",
-        'IF': "if (i == true) {\n" + tabs + "\t" + "// do something \n" + tabs + "}",
-        'IF-ELSE': "if (i == true) {\n" + tabs + "\t" + "// do something \n" + tabs + "} else {\n" + tabs + "\t" + "// do something \n" + tabs + "}",
-        'FOR': "for (var i = 0; i < value; i++){\n" + tabs + "\t // do something \n" + tabs + "}",
-        'WHILE': "while (i < 10) {\n" + tabs + "\t" + "// do something \n" + tabs + "}",
-        'FUNCTION': "function name(parameters) {\n" + tabs + "\t // do something \n" + tabs + "\t return value;\n" + tabs + "}",
-    };
-
-    var block = [firstPart, blockDict[word], lastPart].join("");
+    var block = [firstPart, blockDict[i].code, lastPart].join("");
     editor.setValue(block);
     editor.setPosition(position);
+
+
 
 }
 
 // adds all the blocks to the button container
 function addBlocksHTML() {
-    for (i in keysArray) {
-        var clickEvent = 'addBlock("' + keysArray[i] + '")';
+    for (var i = 0; i < blockDict.length; i++) {
+        var HTMLfunction = 'addBlock(' + i + ', \'' + blockDict[i].blockName + '\')';
 
         // creates button and sets all attributes
         var block = document.createElement("button");
         block.setAttribute("type", "button");
         block.setAttribute("class", "addButton");
-        block.setAttribute("style", colorArray[i]);
-        block.setAttribute("onclick", clickEvent);
-        var text = document.createTextNode(keysArray[i]);
-        block.appendChild(text);
+        block.appendChild(document.createTextNode(blockDict[i].blockName));
+        block.setAttribute("style", "background-color:" + blockDict[i].buttonColor);
+        block.setAttribute("onclick", HTMLfunction);
 
         // adds the new button inside the buttonContainer class at end
-        var existingElement = document.getElementById("buttonContainer");
-        existingElement.appendChild(block);
+        var buttonContainer = document.getElementById("buttonContainer");
+        buttonContainer.appendChild(block);
 
         // adds a break element to make a column of blocks
-        var br = document.createElement("br");
-        existingElement.appendChild(br);
+        buttonContainer.appendChild(document.createElement("br"));
     }
 }
 

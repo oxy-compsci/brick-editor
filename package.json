@@ -12,6 +12,7 @@
     "browserify": "16.1.0",
     "http-server": "0.11.1",
     "monaco-editor": "0.10.1",
-    "recast": "0.14.1"
+    "recast": "0.14.1",
+    "browserify": "16.1.0"
   }
 }

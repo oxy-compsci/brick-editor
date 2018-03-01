@@ -5,12 +5,12 @@ var position;
 var blockDict = [
     {
         'blockName': 'IF',
-        'code': 'if (i == true) {\n\t// do something \n}',
+        'code': 'if (i == true) {\n\t // do something \n}',
         'buttonColor': '#ff3399', // fuschia
     },
     {
         'blockName': 'IF-ELSE',
-        'code': 'if (i == true) {\n\t// do something \n} else {\n\t// do something \n}',
+        'code': 'if (i == true) {\n\t // do something \n} else {\n\t // do something \n}',
         'buttonColor': '#b8860b', // darkgoldenrod
     },
     {
@@ -20,7 +20,7 @@ var blockDict = [
     },
     {
         'blockName': 'WHILE',
-        'code': 'while (i < 10) {\n\t// do something \n}',
+        'code': 'while (i < 10) {\n\t //do something\n}',
         'buttonColor': '#32cd32' // lime green
     },
     {
@@ -76,7 +76,7 @@ function start_brick_editor() {
     editor.onMouseLeave(function (e) {
         position = editor.getPosition();
     });
-
+    
 }
 
 // add a tab for every four spaces before cursor position for correct indenting
@@ -96,26 +96,33 @@ function addBlock(i, word) {
     var firstPart = getBeforeCursor(buffer, position);
     var lastPart = getAfterCursor(buffer, position);
 
-    var block = [firstPart, blockDict[i].code, lastPart].join("");
+    var block = [firstPart, blockDict[i]['code'], lastPart].join("");
     editor.setValue(block);
     editor.setPosition(position);
 
-    var ast = recast.parse(editor.getValue());
-    editor.setValue(recast.prettyPrint(ast).code); 
+    var ast = esprima.parseScript(editor.getValue(), { range: true, tokens: true, comment: true });
+    ast = escodegen.attachComments(ast, ast.comments, ast.tokens);
+    //console.log(JSON.stringify(ast, null, 4));
+    
+    editor.setValue(escodegen.generate(ast, {
+        format: {
+            preserveBlankLines: true
+        }, comment: true, sourceCode: editor.getValue() }));
+    //console.log(escodegen.generate(ast, { comment: true }));
 
 }
 
 // adds all the blocks to the button container
 function addBlocksHTML() {
     for (var i = 0; i < blockDict.length; i++) {
-        var HTMLfunction = 'addBlock(' + i + ', \'' + blockDict[i].blockName + '\')';
+        var HTMLfunction = 'addBlock(' + i + ', \'' + blockDict[i]['blockName'] + '\')';
 
         // creates button and sets all attributes
         var block = document.createElement("button");
         block.setAttribute("type", "button");
         block.setAttribute("class", "addButton");
-        block.appendChild(document.createTextNode(blockDict[i].blockName));
-        block.setAttribute("style", "background-color:" + blockDict[i].buttonColor);
+        block.appendChild(document.createTextNode(blockDict[i]['blockName']));
+        block.setAttribute("style", "background-color:" + blockDict[i]['buttonColor']);
         block.setAttribute("onclick", HTMLfunction);
 
         // adds the new button inside the buttonContainer class at end

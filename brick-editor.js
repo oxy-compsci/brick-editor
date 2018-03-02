@@ -5,22 +5,22 @@ var position;
 var blockDict = [
     {
         'blockName': 'IF',
-        'code': 'if (i == true) {\n' + tabs + '\t' + '// do something \n' + tabs + '}',
+        'code': 'if (i == true) {\n\t// do something \n}',
         'buttonColor': '#ff3399', // fuschia
     },
     {
         'blockName': 'IF-ELSE',
-        'code': 'if (i == true) {\n' + tabs + '\t' + '// do something \n' + tabs + '} else {\n' + tabs + '\t' + '// do something \n' + tabs + '}',
+        'code': 'if (i == true) {\n\t// do something \n} else {\n\t// do something \n}',
         'buttonColor': '#b8860b', // darkgoldenrod
     },
     {
         'blockName': 'FOR',
-        'code': 'for (var i = 0; i < value; i++){\n' + tabs + '\t // do something \n' + tabs + '}',
+        'code': 'for (var i = 0; i < value; i++){\n\t // do something \n}',
         'buttonColor': '#00bfff', // deepskyblue
     },
     {
         'blockName': 'WHILE',
-        'code': 'while (i < 10) {\n' + tabs + '\t' + '// do something \n' + tabs + '}',
+        'code': 'while (i < 10) {\n\t// do something \n}',
         'buttonColor': '#32cd32' // lime green
     },
     {
@@ -30,7 +30,7 @@ var blockDict = [
     },
     {
         'blockName': 'FUNCTION',
-        'code': 'function name(parameters) {\n' + tabs + '\t // do something \n' + tabs + '\t return value;\n' + tabs + '}',
+        'code': 'function name(parameters) {\n\t // do something \n\t return value;\n}',
         'buttonColor': '#ff7f50' // coral
     },
 ];
@@ -80,13 +80,22 @@ function start_brick_editor() {
 }
 
 // add a tab for every four spaces before cursor position for correct indenting
-var tabs;
+
 function getIndent(position) {
-    tabs = "";
+    var tabs = "";
     for (var i = 0; i < position.column - 2; i = i + 4) {
         tabs += "\t";
     }
     return tabs;
+}
+
+function indentCode(code, tabs) {
+    var codeArray = code.split("\n");
+    for (var i = 1; i < codeArray.length; i++) {
+        codeArray[i] = tabs.concat(codeArray[i]);
+    }
+    code = codeArray.join("\n");
+    return code;
 }
 
 // adds a block based on word
@@ -96,25 +105,22 @@ function addBlock(i, word) {
     var firstPart = getBeforeCursor(buffer, position);
     var lastPart = getAfterCursor(buffer, position);
 
-    var block = [firstPart, blockDict[i].code, lastPart].join("");
+    var block = [firstPart, indentCode(blockDict[i]["code"], tabs), lastPart].join("");
     editor.setValue(block);
     editor.setPosition(position);
-
-
-
 }
 
 // adds all the blocks to the button container
 function addBlocksHTML() {
     for (var i = 0; i < blockDict.length; i++) {
-        var HTMLfunction = 'addBlock(' + i + ', \'' + blockDict[i].blockName + '\')';
+        var HTMLfunction = 'addBlock(' + i + ', \'' + blockDict[i]["blockName"] + '\')';
 
         // creates button and sets all attributes
         var block = document.createElement("button");
         block.setAttribute("type", "button");
         block.setAttribute("class", "addButton");
-        block.appendChild(document.createTextNode(blockDict[i].blockName));
-        block.setAttribute("style", "background-color:" + blockDict[i].buttonColor);
+        block.appendChild(document.createTextNode(blockDict[i]["blockName"]));
+        block.setAttribute("style", "background-color:" + blockDict[i]["buttonColor"]);
         block.setAttribute("onclick", HTMLfunction);
 
         // adds the new button inside the buttonContainer class at end

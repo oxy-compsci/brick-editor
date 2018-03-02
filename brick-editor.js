@@ -1,6 +1,6 @@
 var editor;
 var position;
-
+var tabs = "";
 // initialize dictionary
 var blockDict = [
     {

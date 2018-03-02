@@ -1,6 +1,6 @@
 var editor;
 var position;
-var tabs = "";
+
 // initialize dictionary
 var blockDict = [
     {
@@ -94,8 +94,8 @@ function indentCode(code, tabs) {
     for (var i = 1; i < codeArray.length; i++) {
         codeArray[i] = tabs.concat(codeArray[i]);
     }
-    code = codeArray.join("\n");
-    return code;
+    return codeArray.join("\n");
+
 }
 
 // adds a block based on word

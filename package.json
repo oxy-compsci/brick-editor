@@ -4,7 +4,8 @@
   "description": "An editor to help beginners transition from block-based languages.",
   "main": "index.js",
   "scripts": {
-    "simpleserver": "node_modules/.bin/http-server -c-1 ./ -p 8888"
+    "simpleserver": "node_modules/.bin/http-server -c-1 ./ -p 8888",
+    "test": "node tests.js"
   },
   "author": "Microsoft Corporation",
   "license": "MIT",

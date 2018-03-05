@@ -93,7 +93,6 @@ function indentCode(code, tabs) {
         codeArray[i] = tabs.concat(codeArray[i]);
     }
     return codeArray.join("\n");
-
 }
 
 // adds a block based on word
@@ -153,3 +152,10 @@ function getAfterCursor(buffer, position) {
 
     return lastPart1;                                                                   // return the string
 }
+
+module.exports = {
+    getIndent,
+    indentCode,
+    getBeforeCursor,
+    getAfterCursor
+};

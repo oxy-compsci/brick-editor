@@ -35,8 +35,6 @@ var blockDict = [
     },
 ];
 
-document.body.onload = addBlocksHTML();
-
 function start_brick_editor() {
     var jsCode = [
         '"use strict";',
@@ -95,7 +93,6 @@ function indentCode(code, tabs) {
         codeArray[i] = tabs.concat(codeArray[i]);
     }
     return codeArray.join("\n");
-
 }
 
 // adds a block based on word
@@ -155,3 +152,10 @@ function getAfterCursor(buffer, position) {
 
     return lastPart1;                                                                   // return the string
 }
+
+module.exports = {
+    getIndent,
+    indentCode,
+    getBeforeCursor,
+    getAfterCursor
+};

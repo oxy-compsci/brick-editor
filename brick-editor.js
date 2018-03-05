@@ -35,8 +35,6 @@ var blockDict = [
     },
 ];
 
-document.body.onload = addBlocksHTML();
-
 function start_brick_editor() {
     var jsCode = [
         '"use strict";',

@@ -11,7 +11,9 @@
     <h1 id="title">Brick Editor</h1>
     <div id="buttonContainer">
     </div>
-
+    <script src="escodegen.browser.js"></script>
+    <script src="https://unpkg.com/esprima@~4.0/dist/esprima.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
     <script src="../node_modules/monaco-editor/min/vs/loader.js"></script>
     <script src="brick-editor.js"></script>
     <script>
@@ -26,6 +28,13 @@
     <div id="container"></div>
     <script>
         document.body.onload = addBlocksHTML();
+    </script>
+    <script src="bundle.js"></script>
+    <script>
+        var recast = null;
+        $(function () {
+            recast = require("recast");
+        });
     </script>
 </body>
 </html>

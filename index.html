@@ -11,30 +11,24 @@
     <h1 id="title">Brick Editor</h1>
     <div id="buttonContainer">
     </div>
-    <script src="escodegen.browser.js"></script>
+    <script src="../node_modules/escodegen/escodegen.browser.js"></script>
     <script src="https://unpkg.com/esprima@~4.0/dist/esprima.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
     <script src="../node_modules/monaco-editor/min/vs/loader.js"></script>
     <script src="brick-editor.js"></script>
     <script>
-        require.config({
-            paths: {
-                'vs': '../node_modules/monaco-editor/min/vs'
-            }
-        });
-        require(['vs/editor/editor.main'], start_brick_editor);
+            require.config({
+                paths: {
+                    'vs': '../node_modules/monaco-editor/min/vs'
+                }
+            });
+            require(['vs/editor/editor.main'], start_brick_editor);
     </script>
     <!--Edit container alignment, border, size-->
     <div id="container"></div>
     <script>
-        document.body.onload = addBlocksHTML();
+            document.body.onload = addBlocksHTML();
     </script>
     <script src="bundle.js"></script>
-    <script>
-        var recast = null;
-        $(function () {
-            recast = require("recast");
-        });
-    </script>
 </body>
 </html>

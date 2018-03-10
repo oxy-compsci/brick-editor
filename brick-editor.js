@@ -103,19 +103,12 @@ function buttonHandler(i) {
 
     // add block to buffer string and update editor
     var new_text = addBlock(template, buffer, position);
-    
-   
     var ast = esprima.parseScript(new_text, {range: true, tokens: true, comment: true});
     ast = escodegen.attachComments(ast, ast.comments, ast.tokens);
     editor.setValue(escodegen.generate(ast, { comment: true }));
-    //console.log(JSON.stringify(ast, null, 4));
-
-    editor.setValue(escodegen.generate(ast, { comment: true}));
-    //console.log(escodegen.generate(ast, { comment: true }));*/
    
     // update cursor position
     editor.setPosition(position);
-
 }
 
 // adds a block based on word

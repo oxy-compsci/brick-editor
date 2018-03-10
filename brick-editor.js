@@ -139,7 +139,7 @@ function addBlocksHTML() {
         // creates button and sets all attributes
         var block = document.createElement("button");
         block.setAttribute("type", "button");
-        block.setAttribute("class", "addButton");
+        block.setAttribute("class", "addBlockButton");
         block.appendChild(document.createTextNode(blockDict[i]['blockName']));
         block.setAttribute("style", "background-color:" + blockDict[i]['buttonColor']);
         block.setAttribute("onclick", HTMLfunction);

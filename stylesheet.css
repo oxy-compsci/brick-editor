@@ -1,42 +1,5 @@
-﻿body {
+body {
     background-color: #333333;
-    height: 100%;
-    width: 100%;
-}
-
-.addButton {
-    border: solid black 1px;
-    color: white;
-    font-weight: 600;
-    padding: 25px 0;
-    width: 125px;
-    text-align: center;
-    font-size: 16px;
-    margin-left: 20px;
-    border-radius: 5px;
-    cursor: pointer;
-}
-
-#container {
-    margin: 1%;
-    width: 62%;
-    height: 600px;
-    border: 2px solid skyblue;
-    position: absolute;
-    display: inline-block;
-}
-
-#buttonContainer {
-    width: 30%;
-    height: 550px;
-    margin-left: 1%;
-    margin-top: 1%;
-    margin-bottom: 1%;
-    padding-left: 50px;
-    padding-top: 50px;
-    border: 2px solid skyblue;
-    background-color: #404040;
-    display: inline-block;
 }
 
 #title {
@@ -44,4 +7,33 @@
     color: white;
     text-align: center;
     font-family: HelvLight, 'Trebuchet MS', sans-serif;
+}
+
+#container {
+    width: 69%;
+    height: 600px;
+    position: absolute;
+    display: inline-block;
+}
+
+#buttonContainer {
+    width: 30%;
+    max-width: 150px;
+    height: 550px;
+    display: inline-block;
+    position:relative;
+    text-align:center;
+}
+
+.addBlockButton {
+    border: solid black 1px;
+    color: white;
+    font-weight: 600;
+    padding: 25px 0;
+    width: 125px;
+    text-align: center;
+    font-size: 16px;
+    border-radius: 5px;
+    margin: 0px auto;
+    cursor: pointer;
 }

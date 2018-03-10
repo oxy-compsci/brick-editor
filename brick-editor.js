@@ -35,6 +35,17 @@ var blockDict = [
     },
 ];
 
+function load_quine() {
+    var xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+        if (this.readyState === 4 && this.status === 200 && editor !== undefined) {
+            editor.setValue(this.responseText);
+        }
+    };
+    xhttp.open("GET", "brick-editor.js", true);
+    xhttp.send();
+}
+
 function start_brick_editor() {
     var jsCode = [
         '"use strict";',
@@ -70,6 +81,7 @@ function start_brick_editor() {
         theme: "customTheme"
  
     });
+    load_quine();
 
     editor.onMouseLeave(function (e) {
         position = editor.getPosition();

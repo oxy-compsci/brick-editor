@@ -74,7 +74,6 @@ function start_brick_editor() {
     editor.onMouseLeave(function (e) {
         position = editor.getPosition();
     });
-    
 }
 
 // add a tab for every four spaces before cursor position for correct indenting
@@ -170,5 +169,3 @@ function getAfterPosition(buffer, position) {
 
     return lastPart1;                                                                           // return the string
 }
-
-

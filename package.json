@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "simpleserver": "node_modules/.bin/http-server -c-1 ./ -p 8888",
+    "makebundle": "node_modules/browserify/bin/cmd.js -r esprima -r escodegen -o bundle.js",
     "test": "node tests.js"
   },
   "author": "Microsoft Corporation",

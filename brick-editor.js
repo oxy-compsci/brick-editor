@@ -74,7 +74,6 @@ function start_brick_editor() {
     editor.onMouseLeave(function (e) {
         position = editor.getPosition();
     });
-
 }
 
 // add a tab for every four spaces before cursor position for correct indenting
@@ -95,29 +94,42 @@ function indentCode(code, tabs) {
     return codeArray.join("\n");
 }
 
-// adds a block based on word
-function addBlock(i, word) {
-    tabs = getIndent(position);
+// function to handle button clicks
+function buttonHandler(i) {
+    var template = blockDict[i]["code"];
     var buffer = editor.getValue();
-    var firstPart = getBeforeCursor(buffer, position);
-    var lastPart = getAfterCursor(buffer, position);
+    var position = editor.getPosition();
 
-    var block = [firstPart, indentCode(blockDict[i]["code"], tabs), lastPart].join("");
-    editor.setValue(block);
+    // add block to buffer string and update editor
+    var new_text = addBlock(template, buffer, position);
+    var ast = esprima.parseScript(new_text, {range: true, tokens: true, comment: true});
+    ast = escodegen.attachComments(ast, ast.comments, ast.tokens);
+    editor.setValue(escodegen.generate(ast, { comment: true }));
+   
+    // update cursor position
     editor.setPosition(position);
+}
+
+// adds a block based on word
+function addBlock(template, buffer, position) {
+    var firstPart = getBeforePosition(buffer, position);
+    var lastPart = getAfterPosition(buffer, position);
+    var tabs = getIndent(position);
+
+    return [firstPart, indentCode(template, tabs), lastPart].join("");
 }
 
 // adds all the blocks to the button container
 function addBlocksHTML() {
     for (var i = 0; i < blockDict.length; i++) {
-        var HTMLfunction = 'addBlock(' + i + ', \'' + blockDict[i]["blockName"] + '\')';
+        var HTMLfunction = 'buttonHandler(\'' + i + '\')';
 
         // creates button and sets all attributes
         var block = document.createElement("button");
         block.setAttribute("type", "button");
         block.setAttribute("class", "addButton");
-        block.appendChild(document.createTextNode(blockDict[i]["blockName"]));
-        block.setAttribute("style", "background-color:" + blockDict[i]["buttonColor"]);
+        block.appendChild(document.createTextNode(blockDict[i]['blockName']));
+        block.setAttribute("style", "background-color:" + blockDict[i]['buttonColor']);
         block.setAttribute("onclick", HTMLfunction);
 
         // adds the new button inside the buttonContainer class at end
@@ -130,32 +142,30 @@ function addBlocksHTML() {
 }
 
 // returns a string containing characters before cursor position
-function getBeforeCursor(buffer, position) {
+function getBeforePosition(buffer, position) {
     var splitBuffer = buffer.split("\n");
     var firstPart = splitBuffer.slice(0, position.lineNumber - 1);
-    var sameLine = splitBuffer.slice(position.lineNumber - 1, position.lineNumber);
-    sameLine = sameLine.slice(0, position.column);
+    var sameLine = splitBuffer.slice(position.lineNumber - 1, position.lineNumber).join('');
+    sameLine = sameLine.split('');
+    if (position.column > 0){
+        position.column = position.column - 1;
+    }
+    sameLine = sameLine.slice(0, position.column).join('');
     firstPart.push(sameLine);
-    var firstPart1 = firstPart.join("\n");
+    var firstPart1 = firstPart.join('\n');
 
     return firstPart1;
 }
 
 // returns a string containing characters after cursor position
-function getAfterCursor(buffer, position) {
-    var splitBuffer = buffer.split("\n");                                               // split string into array of lines
-    var lastPart = splitBuffer.slice(position.lineNumber);                              // select only the lines after the cursor
-    var sameLine = splitBuffer.slice(position.lineNumber, position.lineNumber + 1);     // select the cursors line
-    sameLine = sameLine.slice(position.column);                                         // select only the characters after the cursor in the line
-    lastPart.unshift(sameLine);                                                         // add those characters to the beginning of the array
-    var lastPart1 = lastPart.join("\n");                                                // join all the array elements into a string
+function getAfterPosition(buffer, position) {
+    var splitBuffer = buffer.split("\n");                                                       // split string into array of lines
+    var lastPart = splitBuffer.slice(position.lineNumber);                                      // select only the lines after the cursor
+    var sameLine = splitBuffer.slice(position.lineNumber - 1, position.lineNumber).join('');    // select the cursors line
+    sameLine = sameLine.split('');                                                              // select only the characters after the cursor in the line
+    sameLine = sameLine.slice(position.column - 1).join('');
+    lastPart.unshift(sameLine);                                                                 // add those characters to the beginning of the array
+    var lastPart1 = lastPart.join('\n');                                                        // join all the array elements into a string
 
-    return lastPart1;                                                                   // return the string
+    return lastPart1;                                                                           // return the string
 }
-
-module.exports = {
-    getIndent,
-    indentCode,
-    getBeforeCursor,
-    getAfterCursor
-};

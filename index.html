@@ -15,24 +15,28 @@
     <script src="../node_modules/monaco-editor/min/vs/loader.js"></script>
     <script src="brick-editor.js"></script>
     <script>
-            require.config({
-                paths: {
-                    'vs': '../node_modules/monaco-editor/min/vs'
-                }
-            });
-            require(['vs/editor/editor.main'], start_brick_editor);
-    </script>
-    <!--Edit container alignment, border, size-->
-    <div id="container"></div>
-    <script>
+        // load monaco editor
+        require.config({
+            paths: {
+                'vs': '../node_modules/monaco-editor/min/vs'
+            }
+        });
+        require(['vs/editor/editor.main'], start_brick_editor);
+
+        // load other modules when ready
+        // this is necessary because bundle.js overwrites require()
+        // which means we cannot load monaco after bundle.js has been loaded
         var esprima = null;
         var escodegen = null;
-            window.onload = function() {
-                esprima = require("esprima");
-                escodegen = require("escodegen");
-                addBlocksHTML();
-            }
+        window.onload = function() {
+            esprima = require("esprima");
+            escodegen = require("escodegen");
+            addBlocksHTML();
+        }
     </script>
     <script src="bundle.js"></script>
+
+    <!-- monaco container -->
+    <div id="container"></div>
 </body>
 </html>

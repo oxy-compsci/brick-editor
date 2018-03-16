@@ -1,3 +1,5 @@
+/* global require */
+
 var assert = require("assert");
 var brickEditor = require("./brick-editor.js");
 

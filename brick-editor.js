@@ -35,6 +35,9 @@ var blockDict = [
     },
 ];
 
+/**
+ * FIXME
+ */
 function load_quine() {
     var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {
@@ -46,6 +49,9 @@ function load_quine() {
     xhttp.send();
 }
 
+/**
+ * FIXME
+ */
 function start_brick_editor() {
     var jsCode = [
         '"use strict";',
@@ -88,8 +94,9 @@ function start_brick_editor() {
     });
 }
 
-// add a tab for every four spaces before cursor position for correct indenting
-
+/**
+ * add a tab for every four spaces before cursor position for correct indenting
+ */
 function getIndent(position) {
     var tabs = "";
     for (var i = 0; i < position.column - 2; i = i + 4) {
@@ -98,6 +105,9 @@ function getIndent(position) {
     return tabs;
 }
 
+/**
+ * FIXME
+ */
 function indentCode(code, tabs) {
     var codeArray = code.split("\n");
     for (var i = 1; i < codeArray.length; i++) {
@@ -106,7 +116,9 @@ function indentCode(code, tabs) {
     return codeArray.join("\n");
 }
 
-// function to handle button clicks
+/**
+ * function to handle button clicks
+ */
 function buttonHandler(i) {
     var template = blockDict[i]["code"];
     var buffer = editor.getValue();
@@ -122,7 +134,9 @@ function buttonHandler(i) {
     editor.setPosition(position);
 }
 
-// adds a block based on word
+/**
+ * adds a block based on word
+ */
 function addBlock(template, buffer, position) {
     var firstPart = getBeforePosition(buffer, position);
     var lastPart = getAfterPosition(buffer, position);
@@ -131,7 +145,9 @@ function addBlock(template, buffer, position) {
     return [firstPart, indentCode(template, tabs), lastPart].join("");
 }
 
-// adds all the blocks to the button container
+/**
+ * adds all the blocks to the button container
+ */
 function addBlocksHTML() {
     for (var i = 0; i < blockDict.length; i++) {
         var HTMLfunction = 'buttonHandler(\'' + i + '\')';
@@ -153,7 +169,9 @@ function addBlocksHTML() {
     }
 }
 
-// returns a string containing characters before cursor position
+/**
+ * returns a string containing characters before cursor position
+ */
 function getBeforePosition(buffer, position) {
     var splitBuffer = buffer.split("\n");
     var firstPart = splitBuffer.slice(0, position.lineNumber - 1);
@@ -169,7 +187,9 @@ function getBeforePosition(buffer, position) {
     return firstPart1;
 }
 
-// returns a string containing characters after cursor position
+/*
+ * returns a string containing characters after cursor position
+ */
 function getAfterPosition(buffer, position) {
     var splitBuffer = buffer.split("\n");                                                       // split string into array of lines
     var lastPart = splitBuffer.slice(position.lineNumber);                                      // select only the lines after the cursor

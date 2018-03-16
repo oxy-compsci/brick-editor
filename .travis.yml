@@ -1,9 +1,15 @@
 dist: trusty
 language: node_js
-
-node_js:
- - "node"
-
+node_js: "node"
 cache:
   directories:
     - "node_modules"
+matrix:
+  include:
+    - env: SCRIPT=TEST
+    - env: SCRIPT=LINT
+before_install:
+  - npm install assert eslint
+script:
+  - if [ "$SCRIPT" = "TEST" ]; then npm test; fi
+  - if [ "$SCRIPT" = "LINT" ]; then eslint brick-editor.js; fi

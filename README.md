@@ -2,9 +2,11 @@
 
 An editor to help beginners transition from block-based languages.
 
+[![Build Status](https://travis-ci.org/oxy-compsci/brick-editor.svg?branch=master)](https://travis-ci.org/oxy-compsci/brick-editor)
+
 ## What problem does this project solve?
 
-Currently there are two primary ways for young programmers to write code: text editor and block editor. Ultimately, we want young programmers to use text editors, but due to their high learning curve, most K-5 programmers start with block editors. The problem with block editors is that they still don’t make it easy to transition to text editing. The skills of editing blocks seem very independent of writing text base code. The other issue with block based editors is that kids quickly see them as “not really coding”l or for kids that are younger. 
+Currently there are two primary ways for young programmers to write code: text editor and block editor. Ultimately, we want young programmers to use text editors, but due to their high learning curve, most K-5 programmers start with block editors. The problem with block editors is that they still don't make it easy to transition to text editing. The skills of editing blocks seem very independent of writing text base code. The other issue with block based editors is that kids quickly see them as "not really coding"l or for kids that are younger. 
 
 ## What is the vision?
 

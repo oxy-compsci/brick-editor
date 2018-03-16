@@ -10,6 +10,11 @@
   },
   "author": "Microsoft Corporation",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:oxy-compsci/brick-editor.git",
+    "web": "https://github.com/oxy-compsci/brick_editor"
+  },
   "dependencies": {
     "assert": "1.4.1",
     "browserify": "16.1.0",

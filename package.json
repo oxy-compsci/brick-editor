@@ -16,10 +16,9 @@
     "web": "https://github.com/oxy-compsci/brick_editor"
   },
   "dependencies": {
-    "assert": "1.4.1",
     "browserify": "16.1.0",
-    "escodegen": "^1.9.1",
-    "esprima": "^4.0.0",
+    "escodegen": "1.9.1",
+    "esprima": "4.0.0",
     "http-server": "0.11.1",
     "monaco-editor": "0.10.1"
   }

@@ -20,8 +20,10 @@
         // this is necessary because bundle.js overwrites require()
         // which means we cannot load monaco after bundle.js has been loaded
         var recast = null;
+        var estraverse = null;
         window.onload = function() {
             recast = require("recast");
+            estraverse = require("estraverse");
             addBlocksHTML();
         }
     </script>

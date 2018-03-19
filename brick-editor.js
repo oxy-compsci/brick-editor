@@ -35,19 +35,6 @@ var blockDict = [
     },
 ];
 
-/**
- * FIXME
- */
-function load_quine() {
-    var xhttp = new XMLHttpRequest();
-    xhttp.onreadystatechange = function() {
-        if (this.readyState === 4 && this.status === 200 && editor !== undefined) {
-            editor.setValue(this.responseText);
-        }
-    };
-    xhttp.open("GET", "brick-editor.js", true);
-    xhttp.send();
-}
 
 /**
  * FIXME
@@ -87,11 +74,12 @@ function start_brick_editor() {
         theme: "customTheme"
  
     });
-    load_quine();
 
     editor.onMouseLeave(function (e) {
         position = editor.getPosition();
     });
+
+    
 }
 
 /**
@@ -200,3 +188,4 @@ function getAfterPosition(buffer, position) {
 
     return lastPart1;                                                                           // return the string
 }
+

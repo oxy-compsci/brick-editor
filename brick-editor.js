@@ -82,6 +82,41 @@ function start_brick_editor() {
     
 }
 
+// EVENT HANDLERS
+
+// TEXT EDITING CODE
+
+/**
+ * Find the closest shared parent between multiple positions.
+ *
+ * @param {AST} ast - the root of the AST to search through.
+ * @param {[Location]} positions - List of LineNumber and Column objects.
+ */
+function findClosestCommonParent(ast, positions) {
+    return null;
+}
+
+/**
+ * Find the closest parent node that contains the position.
+ *
+ * @param {AST} ast - the root of the AST to search through.
+ * @param {Location} position - A LineNumber and Column object.
+ */
+function findClosestParent(ast, position) {
+    return findClosestCommonParent(ast, [position]);
+}
+
+/**
+ * Find the immediately previous sibling to the position.
+ *
+ * @param {AST} ast - the root of the AST to search through.
+ * @param {Location} positions - A LineNumber and Column object.
+ */
+function findPreviousSibling(ast, position) {
+    var parentNode = findClosestParent(ast, position);
+    return null;
+}
+
 /**
  * add a tab for every four spaces before cursor position for correct indenting
  */
@@ -189,3 +224,12 @@ function getAfterPosition(buffer, position) {
     return lastPart1;                                                                           // return the string
 }
 
+module.exports = { 
+    findClosestCommonParent,
+    findClosestParent,
+    findPreviousSibling,
+    getIndent, 
+    indentCode, 
+    getBeforePosition, 
+    getAfterPosition
+}; 

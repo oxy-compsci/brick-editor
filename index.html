@@ -19,11 +19,9 @@
         // load other modules when ready
         // this is necessary because bundle.js overwrites require()
         // which means we cannot load monaco after bundle.js has been loaded
-        var esprima = null;
-        var escodegen = null;
+        var recast = null;
         window.onload = function() {
-            esprima = require("esprima");
-            escodegen = require("escodegen");
+            recast = require("recast");
             addBlocksHTML();
         }
     </script>

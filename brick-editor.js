@@ -126,9 +126,8 @@ function buttonHandler(i) {
 
     // add block to buffer string and update editor
     var new_text = addBlock(template, buffer, position);
-    var ast = esprima.parseScript(new_text, {range: true, tokens: true, comment: true});
-    ast = escodegen.attachComments(ast, ast.comments, ast.tokens);
-    editor.setValue(escodegen.generate(ast, { comment: true }));
+    var ast = recast.parse(new_text);
+    editor.setValue(recast.print(ast).code);
    
     // update cursor position
     editor.setPosition(position);

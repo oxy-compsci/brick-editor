@@ -103,5 +103,70 @@ function testClosestParentMultipleLines() {
     checkASTPosition(parent_node, "BlockStatement", 1, 16, 3, 1);
 }
 
+function testClosestParentNested() {
+    var ast = recast.parse([
+        "function log(s) {",
+        "    console.log(1);",
+        "    console.log(1);",
+        "    console.log(1);",
+        "    while (True) {",
+        "        console.log(2);",
+        "        console.log(2);",
+        "        console.log(2);",
+        "        if (s === null) {",
+        "            console.log(3);",
+        "            console.log(3);",
+        "            console.log(3);",
+        "        } else {",
+        "            console.log(4);",
+        "            console.log(4);",
+        "            console.log(4);",
+        "        }",
+        "    }",
+        "    console.log(5);",
+        "    console.log(5);",
+        "    console.log(5);",
+        "}",
+    ].join("\n"));
+    var position = null;
+    var parent_node = null;
+
+    // in while keyword
+    position = {"line": 3, "column": 17};
+    parent_node = brickEditor.findClosestParent(ast, position);
+    checkASTPosition(parent_node, "BlockStatement", 1, 16, 22, 1);
+
+    // in while condition
+    position = {"line": 3, "column": 17};
+    parent_node = brickEditor.findClosestParent(ast, position);
+    checkASTPosition(parent_node, "BlockStatement", 1, 16, 22, 1);
+
+    // in while block
+    position = {"line": 3, "column": 17};
+    parent_node = brickEditor.findClosestParent(ast, position);
+    checkASTPosition(parent_node, "BlockStatement", 5, 17, 18, 5);
+
+    // in if keyword
+    position = {"line": 3, "column": 17};
+    parent_node = brickEditor.findClosestParent(ast, position);
+    checkASTPosition(parent_node, "BlockStatement", 5, 17, 18, 5);
+
+    // in if condition
+    position = {"line": 3, "column": 17};
+    parent_node = brickEditor.findClosestParent(ast, position);
+    checkASTPosition(parent_node, "BlockStatement", 5, 17, 18, 5);
+
+    // in if true block
+    position = {"line": 3, "column": 17};
+    parent_node = brickEditor.findClosestParent(ast, position);
+    checkASTPosition(parent_node, "BlockStatement", 9, 24, 13, 9);
+
+    // in if false block
+    position = {"line": 3, "column": 17};
+    parent_node = brickEditor.findClosestParent(ast, position);
+    checkASTPosition(parent_node, "BlockStatement", 13, 15, 17, 9);
+}
+
 testClosestParentNearBraces();
 testClosestParentMultipleLines();
+testClosestParentNested();

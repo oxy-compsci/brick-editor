@@ -1,88 +1,10 @@
-var editor;
-var position;
-
-// initialize dictionary
-var blockDict = [
-    {
-        'blockName': 'IF',
-        'code': 'if (i == true) {\n\t// do something \n}',
-        'buttonColor': '#ff3399', // fuschia
-    },
-    {
-        'blockName': 'IF-ELSE',
-        'code': 'if (i == true) {\n\t// do something \n} else {\n\t// do something \n}',
-        'buttonColor': '#b8860b', // darkgoldenrod
-    },
-    {
-        'blockName': 'FOR',
-        'code': 'for (var i = 0; i < value; i++){\n\t // do something \n}',
-        'buttonColor': '#00bfff', // deepskyblue
-    },
-    {
-        'blockName': 'WHILE',
-        'code': 'while (i < 10) {\n\t// do something \n}',
-        'buttonColor': '#32cd32' // lime green
-    },
-    {
-        'blockName': 'VARIABLE',
-        'code': 'var variableName = value;',
-        'buttonColor': '#9932cc' // darkorchid
-    },
-    {
-        'blockName': 'FUNCTION',
-        'code': 'function name(parameters) {\n\t // do something \n\t return value;\n}',
-        'buttonColor': '#ff7f50' // coral
-    },
-];
-
-
-/**
- * FIXME
- */
-function start_brick_editor() {
-    var jsCode = [
-        '"use strict";',
-        'function Person(age) {',
-        '    if (age) {',
-        '        this.age = age;',
-        '    }',
-        '}',
-        '// comment',
-        'Person.prototype.getAge = function () {',
-        '    return this.age;',
-        '};'
-    ].join('\n');
-
-    // defines a custom theme with varied color text
-    monaco.editor.defineTheme('customTheme', {
-        base: 'vs-dark', // can also be vs-dark or hc-black
-        inherit: true, // can also be false to completely replace the builtin rules
-        // set comment color
-        rules: [
-            { token: 'comment.js', foreground: 'ff0066', fontStyle: 'bold' },
-        ],
-        // set editor background color
-        colors: {
-            //'editor.background': '#EDF9FA',
-            'editor.lineHighlightBackground': '#800060',
-    }
-    });
-
-    editor = monaco.editor.create(document.getElementById("container"), {
-        value: jsCode,
-        language: "typescript",
-        theme: "customTheme"
- 
-    });
-
-    editor.onMouseLeave(function (e) {
-        position = editor.getPosition();
-    });
-
-    
-}
+// load node modules
+var recast = require("recast");
+var estraverse = require("estraverse");
 
 // EVENT HANDLERS
+
+// EDITOR INTERFACE CODE
 
 // TEXT EDITING CODE
 
@@ -224,12 +146,17 @@ function getAfterPosition(buffer, position) {
     return lastPart1;                                                                           // return the string
 }
 
-module.exports = { 
-    findClosestCommonParent,
-    findClosestParent,
-    findPreviousSibling,
-    getIndent, 
-    indentCode, 
-    getBeforePosition, 
-    getAfterPosition
-}; 
+// attempt to export the module for testing purposes
+// if this fails, we're running a browser, so we just ignore the error
+try {
+    module.exports = { 
+        findClosestCommonParent,
+        findClosestParent,
+        findPreviousSibling,
+        getIndent, 
+        indentCode, 
+        getBeforePosition, 
+        getAfterPosition
+    }; 
+} catch (referenceError) {
+}

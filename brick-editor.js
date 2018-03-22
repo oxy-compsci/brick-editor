@@ -100,6 +100,19 @@ function findPreviousSibling(ast, position) {
         } else if (node.loc.start.line > position.lineNumber) {
             break;
         }
+
+// DELETING FUNCTIONS
+
+/**
+ * Delete selected text
+ * @param {selectionPosition} - Start line and column, end line and column of selection
+ * @returns
+ */
+function deleteSelected(selectionPosition) {
+    if findClosestParent(start)
+    return null;
+}
+
     }
     
     return prevSibling;

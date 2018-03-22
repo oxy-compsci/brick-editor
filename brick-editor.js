@@ -79,6 +79,15 @@ function findClosestParent(ast, position) {
 function findPreviousSibling(ast, position) {
     var parentNode = findClosestParent(ast, position);
 
+// DELETING FUNCTIONS
+
+/**
+ * Delete selected text
+ * @param {selectionPosition} - Start line and column, end line and column of selection
+ * @returns
+ */
+function deleteSelected(selectionPosition) {
+    if findClosestParent(start)
     return null;
 }
 

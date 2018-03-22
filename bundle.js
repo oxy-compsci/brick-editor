@@ -12149,35 +12149,37 @@ return /******/ (function(modules) { // webpackBootstrap
 ;
 },{}],24:[function(require,module,exports){
 module.exports={
-  "_from": "estraverse",
+  "_args": [
+    [
+      "estraverse@4.2.0",
+      "C:\\Users\\Charlotte\\Documents\\fork\\brick-editor"
+    ]
+  ],
+  "_from": "estraverse@4.2.0",
   "_id": "estraverse@4.2.0",
   "_inBundle": false,
   "_integrity": "sha1-De4/7TH81GlhjOc0IJn8GvoL2xM=",
   "_location": "/estraverse",
   "_phantomChildren": {},
   "_requested": {
-    "type": "tag",
+    "type": "version",
     "registry": true,
-    "raw": "estraverse",
+    "raw": "estraverse@4.2.0",
     "name": "estraverse",
     "escapedName": "estraverse",
-    "rawSpec": "",
+    "rawSpec": "4.2.0",
     "saveSpec": null,
-    "fetchSpec": "latest"
+    "fetchSpec": "4.2.0"
   },
   "_requiredBy": [
-    "#USER",
     "/"
   ],
   "_resolved": "https://registry.npmjs.org/estraverse/-/estraverse-4.2.0.tgz",
-  "_shasum": "0dee3fed31fcd469618ce7342099fc1afa0bdb13",
-  "_spec": "estraverse",
+  "_spec": "4.2.0",
   "_where": "C:\\Users\\Charlotte\\Documents\\fork\\brick-editor",
   "bugs": {
     "url": "https://github.com/estools/estraverse/issues"
   },
-  "bundleDependencies": false,
-  "deprecated": false,
   "description": "ECMAScript JS AST traversal functions",
   "devDependencies": {
     "babel-preset-es2015": "^6.3.13",

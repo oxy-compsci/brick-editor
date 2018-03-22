@@ -1,5 +1,10 @@
 var editor;
 var position;
+//var estraverse = require("estraverse");
+if (estraverse === undefined) {
+    var estraverse = require("estraverse");
+}
+
 
 // initialize dictionary
 var blockDict = [
@@ -65,25 +70,41 @@ function start_brick_editor() {
         colors: {
             //'editor.background': '#EDF9FA',
             'editor.lineHighlightBackground': '#800060',
-    }
+        }
     });
 
     editor = monaco.editor.create(document.getElementById("container"), {
         value: jsCode,
         language: "typescript",
         theme: "customTheme"
- 
     });
 
-    editor.onMouseLeave(function (e) {
+    editor.onMouseLeave(function () {
         position = editor.getPosition();
+        var ast = editor.getValue();
+        console.log(position);
     });
+
+    editor.onKeyDown(function () {
+        positions = [{ "lineNumber": 4, "column": 3 }, { "lineNumber": 4, "column": 5 }];
+        var ast = recast.parse(editor.getValue());
+        
+    })
 
     
 }
 
 // EVENT HANDLERS
+function getPosition() {
+    var position = editor.getPosition();
+    position.column = position.column - 1;
+    return position;
+}
 
+function setPosition(position) {
+    position.column = position.column + 1;
+    editor.setPosition(position);
+}
 // TEXT EDITING CODE
 
 /**
@@ -93,8 +114,38 @@ function start_brick_editor() {
  * @param {[Location]} positions - List of LineNumber and Column objects.
  */
 function findClosestCommonParent(ast, positions) {
-    return null;
+    var parentNode = null;
+    estraverse.traverse(ast.program, {
+        enter: function (node) {
+            var numNodesCommonParent = 0;
+            for (var i = 0; i < positions.length; i++) {
+                if (node.loc.start.line > positions[i]["lineNumber"]) {
+                    this.break();
+                }
+                if (node.loc.start.line <= positions[i]["lineNumber"] && node.loc.end.line >= positions[i]["lineNumber"]) {
+                    if ((node.type === "BlockStatement" || node.type === "Program")) {
+                        if (node.loc.start.line == positions[i]["lineNumber"]) {
+                            if (node.loc.start.column <= positions[i]["column"]) {
+                                numNodesCommonParent++;
+                            }
+                        } else if (node.loc.end.column >= positions[i]["lineNumber"]) {
+                            if (node.loc.end.column >= positions[i]["column"]) {
+                                numNodesCommonParent++;
+                            }
+                        } else {
+                            numNodesCommonParent++;
+                        }
+                    }
+                } 
+            }
+            if (numNodesCommonParent == positions.length) {
+                parentNode = node;
+            }
+        }
+    })
+    return parentNode;
 }
+
 
 /**
  * Find the closest parent node that contains the position.
@@ -114,6 +165,7 @@ function findClosestParent(ast, position) {
  */
 function findPreviousSibling(ast, position) {
     var parentNode = findClosestParent(ast, position);
+
     return null;
 }
 

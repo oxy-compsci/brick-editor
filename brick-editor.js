@@ -3,18 +3,29 @@ var recast = require("recast");
 var estraverse = require("estraverse");
 
 // EVENT HANDLERS
+
+
+
+// EDITOR INTERFACE CODE
+
 function getPosition() {
     var position = editor.getPosition();
     position.column = position.column - 1;
     return position;
 }
 
-// EDITOR INTERFACE CODE
-
 function setPosition(position) {
     position.column = position.column + 1;
     editor.setPosition(position);
 }
+
+function getSelection() {
+    var selectionPosition = editor.getSelection();
+    selectionPosition.startColumn--;
+    selectionPosition.endColumn--;
+    return selectionPosition;
+}
+
 // TEXT EDITING CODE
 
 /**
@@ -78,6 +89,8 @@ function findClosestParent(ast, position) {
  */
 function findPreviousSibling(ast, position) {
     var parentNode = findClosestParent(ast, position);
+    return null;
+}
 
 // DELETING FUNCTIONS
 
@@ -87,8 +100,59 @@ function findPreviousSibling(ast, position) {
  * @returns
  */
 function deleteSelected(selectionPosition) {
-    if findClosestParent(start)
-    return null;
+    var startPosition = { lineNumber: selectionPosition.startLineNumber, column: selectionPosition.startColumn };
+    var endPosition = { lineNumber: selectionPosition.endLineNumber, column: selectionPosition.endColumn };
+    var parentNode = findClosestParent(startPosition);
+    if (findClosestParent(startPosition) == findClosestParent(endPosition)) {
+        confirmDelete(startPosition);
+    } else {
+        var positions = [startPosition, endPosition];
+        parentNode = findClosestCommonParent(positions);
+        confirmDelete
+    }
+}
+
+/**
+ * Delete a node
+ * @param {Position} position - The position of the cursor.
+ * @returns {string} Text with block removed
+ */
+function deleteBlock(position) {
+    var ast = recast.parse(buffer);
+    estraverse.replace(ast.program, {
+        leave: function (node) {
+            if (position.lineNumber == node.loc.end.line && position.column == node.loc.end.column) {
+                this.remove();
+            }
+        }
+    });
+
+    return recast.print(ast).code;
+}
+
+/**
+ * Delete a character
+ * 
+ */
+function deleteChar(position) {
+    var buffer = editor.getValue();
+    var beginPosition = { lineNumber: position.lineNumber, column: position.column - 1 }
+    console.log(position.column - 1);
+    var firstPart = getBeforePosition(buffer, beginPosition);
+    var lastPart = getAfterPosition(buffer, position);
+    return [firstPart, lastPart].join('');
+}
+
+/**
+ * Confirm delete
+ */
+function confirmDelete(position){
+    setTimeout(function () {
+        var response = confirm("Are you sure you wish to delete?");
+        if (response) {
+            editor.setValue(deleteBlock(position));
+        }
+    }, 100);
 }
 
 /**
@@ -125,7 +189,7 @@ function indentCode(code, tabs) {
 function buttonHandler(i) {
     var template = blockDict[i]["code"];
     var buffer = editor.getValue();
-    var position = editor.getPosition();
+    var position = getPosition();
 
     // add block to buffer string and update editor
     var new_text = addBlock(template, buffer, position);
@@ -133,7 +197,7 @@ function buttonHandler(i) {
     editor.setValue(recast.print(ast).code);
    
     // update cursor position
-    editor.setPosition(position);
+    setPosition(position);
 }
 
 /**
@@ -186,9 +250,6 @@ function getBeforePosition(buffer, position) {
     var firstPart = splitBuffer.slice(0, position.lineNumber - 1);
     var sameLine = splitBuffer.slice(position.lineNumber - 1, position.lineNumber).join('');
     sameLine = sameLine.split('');
-    if (position.column > 0){
-        position.column = position.column - 1;
-    }
     sameLine = sameLine.slice(0, position.column).join('');
     firstPart.push(sameLine);
 
@@ -207,7 +268,7 @@ function getAfterPosition(buffer, position) {
     var lastPart = splitBuffer.slice(position.lineNumber);                                     
     var sameLine = splitBuffer.slice(position.lineNumber - 1, position.lineNumber).join('');    
     sameLine = sameLine.split('');                                                             
-    sameLine = sameLine.slice(position.column - 1).join('');
+    sameLine = sameLine.slice(position.column).join('');
     lastPart.unshift(sameLine);                                                              
 
     return lastPart.join('\n');                                                             

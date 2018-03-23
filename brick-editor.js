@@ -22,6 +22,7 @@ function setPosition(position) {
  *
  * @param {AST} ast - the root of the AST to search through.
  * @param {[Location]} positions - List of LineNumber and Column objects.
+ * @returns {node}
  */
 function findClosestCommonParent(ast, positions) {
     var parentNode = null;
@@ -62,6 +63,7 @@ function findClosestCommonParent(ast, positions) {
  *
  * @param {AST} ast - the root of the AST to search through.
  * @param {Location} position - A LineNumber and Column object.
+ * @returns {node} 
  */
 function findClosestParent(ast, position) {
     return findClosestCommonParent(ast, [position]);
@@ -71,7 +73,8 @@ function findClosestParent(ast, position) {
  * Find the immediately previous sibling to the position.
  *
  * @param {AST} ast - the root of the AST to search through.
- * @param {Location} positions - A LineNumber and Column object.
+ * @param {Location} positions - A lineNumber and column object.
+ * @returns {node} 
  */
 function findPreviousSibling(ast, position) {
     var parentNode = findClosestParent(ast, position);
@@ -80,7 +83,9 @@ function findPreviousSibling(ast, position) {
 }
 
 /**
- * add a tab for every four spaces before cursor position for correct indenting
+ * Calculates number of necessary tabs from cursor position for correct indenting
+ * @param {Position} position - A lineNumber and column object.
+ * @returns {string} String of tabs
  */
 function getIndent(position) {
     var tabs = "";
@@ -91,7 +96,10 @@ function getIndent(position) {
 }
 
 /**
- * FIXME
+ * Indents block of code
+ * @param {string} code - The text to be formatted.
+ * @param {string} tabs - The calculated number of tabs.
+ * @returns {string} 
  */
 function indentCode(code, tabs) {
     var codeArray = code.split("\n");
@@ -102,7 +110,8 @@ function indentCode(code, tabs) {
 }
 
 /**
- * function to handle button clicks
+ * Handles button clicks
+ * @param {number} i - Index of code in dictionary
  */
 function buttonHandler(i) {
     var template = blockDict[i]["code"];
@@ -119,7 +128,11 @@ function buttonHandler(i) {
 }
 
 /**
- * adds a block based on word
+ * Adds a block based on button keyword
+ * @param {string} template - A string of block of text to add.
+ * @param {string} buffer - A string of text from the editor.
+ * @param {Position} position - A lineNumber and column object.
+ * @returns {string} Updated text string
  */
 function addBlock(template, buffer, position) {
     var firstPart = getBeforePosition(buffer, position);
@@ -130,7 +143,7 @@ function addBlock(template, buffer, position) {
 }
 
 /**
- * adds all the blocks to the button container
+ * Adds the HTML blocks to the button container
  */
 function addBlocksHTML() {
     for (var i = 0; i < blockDict.length; i++) {
@@ -154,7 +167,10 @@ function addBlocksHTML() {
 }
 
 /**
- * returns a string containing characters before cursor position
+ * Returns a string containing characters before cursor position
+ * @param {string} buffer - A string of text from the editor.
+ * @param {Position} position - A lineNumber and column object.
+ * @returns {string} A string of text before cursor position.
  */
 function getBeforePosition(buffer, position) {
     var splitBuffer = buffer.split("\n");
@@ -166,24 +182,26 @@ function getBeforePosition(buffer, position) {
     }
     sameLine = sameLine.slice(0, position.column).join('');
     firstPart.push(sameLine);
-    var firstPart1 = firstPart.join('\n');
 
-    return firstPart1;
+    return firstPart.join('\n');
 }
 
-/*
- * returns a string containing characters after cursor position
+/**
+ * Returns a string containing characters after cursor position
+ *
+ * @param {string} buffer - A string of text from the editor.
+ * @param {Position} position - A lineNumber and column object.
+ * @returns {string} A string of text after cursor position.
  */
 function getAfterPosition(buffer, position) {
-    var splitBuffer = buffer.split("\n");                                                       // split string into array of lines
-    var lastPart = splitBuffer.slice(position.lineNumber);                                      // select only the lines after the cursor
-    var sameLine = splitBuffer.slice(position.lineNumber - 1, position.lineNumber).join('');    // select the cursors line
-    sameLine = sameLine.split('');                                                              // select only the characters after the cursor in the line
+    var splitBuffer = buffer.split("\n");                                                
+    var lastPart = splitBuffer.slice(position.lineNumber);                                     
+    var sameLine = splitBuffer.slice(position.lineNumber - 1, position.lineNumber).join('');    
+    sameLine = sameLine.split('');                                                             
     sameLine = sameLine.slice(position.column - 1).join('');
-    lastPart.unshift(sameLine);                                                                 // add those characters to the beginning of the array
-    var lastPart1 = lastPart.join('\n');                                                        // join all the array elements into a string
+    lastPart.unshift(sameLine);                                                              
 
-    return lastPart1;                                                                           // return the string
+    return lastPart.join('\n');                                                             
 }
 
 // attempt to export the module for testing purposes

@@ -5,6 +5,12 @@ var estraverse = require("estraverse");
 // EVENT HANDLERS
 
 
+function backspaceHandler() {
+}
+
+function deleteHandler() {
+
+}
 
 // EDITOR INTERFACE CODE
 
@@ -74,6 +80,7 @@ function findClosestCommonParent(ast, positions) {
  *
  * @param {AST} ast - the root of the AST to search through.
  * @param {Location} position - A LineNumber and Column object.
+ * @param {Location} position - A lineNumber and column object.
  * @returns {node} 
  */
 function findClosestParent(ast, position) {
@@ -97,19 +104,28 @@ function findPreviousSibling(ast, position) {
 /**
  * Delete selected text
  * @param {selectionPosition} - Start line and column, end line and column of selection
+ * @param {string} buffer - The text to delete from.
+ * @param {[Position]} selectionPosition - Start line and column, end line and column of selection
  * @returns
  */
 function deleteSelected(selectionPosition) {
+function deleteSelected(buffer, selectionPosition) {
+    var ast = recast.parse(buffer);
     var startPosition = { lineNumber: selectionPosition.startLineNumber, column: selectionPosition.startColumn };
     var endPosition = { lineNumber: selectionPosition.endLineNumber, column: selectionPosition.endColumn };
     var parentNode = findClosestParent(startPosition);
     if (findClosestParent(startPosition) == findClosestParent(endPosition)) {
+    var parentNode = findClosestParent(ast, startPosition);
+    if (findClosestParent(ast, startPosition) == findClosestParent(ast, endPosition)) {
         confirmDelete(startPosition);
     } else {
         var positions = [startPosition, endPosition];
         parentNode = findClosestCommonParent(positions);
         confirmDelete
+        parentNode = findClosestCommonParent(ast, positions);
+        confirmDelete();
     }
+    return buffer;
 }
 
 /**

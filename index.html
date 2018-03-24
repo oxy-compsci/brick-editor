@@ -22,14 +22,15 @@
         templates.js contains the template data used by brick-editor.js. In
         can be loaded before bundle.js, but conceptually fits better after it.
     -->
-    <script src="../node_modules/monaco-editor/min/vs/loader.js"></script>
-    <script src="create-editor.js"></script>
+
     <script src="bundle.js"></script>
     <script src="templates.js"></script>
     <script src="brick-editor.js"></script>
+    <script src="../node_modules/monaco-editor/min/vs/loader.js"></script>
+    <script src="create-editor.js"></script>
     <script>
         // create the clickable buttons to add block
-        window.onload = function() {
+        window.onload = function () {
             addBlocksHTML();
         };
     </script>

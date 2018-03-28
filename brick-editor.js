@@ -4,8 +4,26 @@ var estraverse = require("estraverse");
 
 // EVENT HANDLERS
 
-
 function backspaceHandler() {
+    // if has selected, delete selected
+    var selection = hasSelected();
+    var position = getPosition();
+    var buffer = editor.getValue();
+    var ast = recast.parse(buffer);
+    if (selection) {
+        editor.setValue(deleteSelected(ast, selection));
+    }
+    else {
+        if (cursorAtEndOfBlock(buffer, position)) {
+            if (confirmDelete()) {
+                editor.setValue(deleteBlock(ast, position));
+            } else {
+                // delete char
+                editor.setValue(deleteChar(buffer, position));
+                editor.setPosition(position);
+            }
+        }
+    }
 }
 
 function deleteHandler() {
@@ -30,6 +48,33 @@ function getSelection() {
     selectionPosition.startColumn--;
     selectionPosition.endColumn--;
     return selectionPosition;
+}
+
+function hasSelected() {
+    var selection = getSelection;
+    if (editor.getModel().getValueInRange(selection)) {
+        return selection;
+    }
+    return null;
+}
+
+function highlight(startLine, startColumn, endLine, endColumn) {
+    decorations = editor.deltaDecorations([], [
+        {
+            range: new monaco.Range(startLine, startColumn, endLine, endColumn),
+            options: { isWholeLine: true, className: 'highlight' }
+        }
+    ]);
+}
+
+function confirmDelete() {
+    setTimeout(function () {
+        var response = confirm("Are you sure you wish to delete?");
+        if (response) {
+            return true;
+        }
+        return false;
+    }, 100);
 }
 
 // TEXT EDITING CODE
@@ -79,7 +124,6 @@ function findClosestCommonParent(ast, positions) {
  * Find the closest parent node that contains the position.
  *
  * @param {AST} ast - the root of the AST to search through.
- * @param {Location} position - A LineNumber and Column object.
  * @param {Location} position - A lineNumber and column object.
  * @returns {node} 
  */
@@ -99,31 +143,50 @@ function findPreviousSibling(ast, position) {
     return null;
 }
 
+/**
+ * Find whether cursor is at end of block
+ * @param {string} buffer - Text in the editor.
+ * @param {position}
+ * @returns {boolean}
+ */
+function cursorAtEndOfBlock(ast, position) {
+    var endOfBlock = false;
+    estraverse.traverse(ast.program, {
+        enter: function (node) {
+            if ((node.type == "IfStatement" ||
+                node.type == "ForStatement" ||
+                node.type == "FunctionDeclaration" ||
+                node.type == "WhileStatement" ||
+                node.type == "VariableDeclaration" ||
+                node.type == "ExpressionStatement") &&
+                position.lineNumber == node.loc.end.line && position.column == node.loc.end.column) {
+                highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
+                endOfBlock = true;
+            }
+        }
+    });
+    return endOfBlock;
+}
+
 // DELETING FUNCTIONS
 
 /**
  * Delete selected text
- * @param {selectionPosition} - Start line and column, end line and column of selection
- * @param {string} buffer - The text to delete from.
+ * @param {ast} AST - The parsed text to delete from.
  * @param {[Position]} selectionPosition - Start line and column, end line and column of selection
- * @returns
+ * @returns {string} buffer
  */
-function deleteSelected(selectionPosition) {
-function deleteSelected(buffer, selectionPosition) {
-    var ast = recast.parse(buffer);
+function deleteSelected(ast, selectionPosition) {
     var startPosition = { lineNumber: selectionPosition.startLineNumber, column: selectionPosition.startColumn };
     var endPosition = { lineNumber: selectionPosition.endLineNumber, column: selectionPosition.endColumn };
-    var parentNode = findClosestParent(startPosition);
-    if (findClosestParent(startPosition) == findClosestParent(endPosition)) {
     var parentNode = findClosestParent(ast, startPosition);
     if (findClosestParent(ast, startPosition) == findClosestParent(ast, endPosition)) {
-        confirmDelete(startPosition);
+        // if selection is a block, delete the block using deleteBlock
+        return deleteBlock(ast, parentNode.loc.end);
     } else {
         var positions = [startPosition, endPosition];
-        parentNode = findClosestCommonParent(positions);
-        confirmDelete
         parentNode = findClosestCommonParent(ast, positions);
-        confirmDelete();
+        return deleteBlock(ast, parentNode.loc.end);
     }
     return buffer;
 }
@@ -133,8 +196,7 @@ function deleteSelected(buffer, selectionPosition) {
  * @param {Position} position - The position of the cursor.
  * @returns {string} Text with block removed
  */
-function deleteBlock(position) {
-    var ast = recast.parse(buffer);
+function deleteBlock(ast, position) {
     estraverse.replace(ast.program, {
         leave: function (node) {
             if (position.lineNumber == node.loc.end.line && position.column == node.loc.end.column) {
@@ -150,8 +212,7 @@ function deleteBlock(position) {
  * Delete a character
  * 
  */
-function deleteChar(position) {
-    var buffer = editor.getValue();
+function deleteChar(buffer, position) {
     var beginPosition = { lineNumber: position.lineNumber, column: position.column - 1 }
     console.log(position.column - 1);
     var firstPart = getBeforePosition(buffer, beginPosition);

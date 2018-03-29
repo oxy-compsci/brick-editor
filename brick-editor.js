@@ -22,7 +22,7 @@ function setPosition(position) {
  *
  * @param {AST} ast - the root of the AST to search through.
  * @param {[Location]} positions - List of LineNumber and Column objects.
- * @returns {node}
+ * @returns {node} parentNode
  */
 function findClosestCommonParent(ast, positions) {
     var parentNode = null;
@@ -39,8 +39,8 @@ function findClosestCommonParent(ast, positions) {
                             if (node.loc.start.column <= positions[i]["column"]) {
                                 numNodesCommonParent++;
                             }
-                        } else if (node.loc.end.column >= positions[i]["lineNumber"]) {
-                            if (node.loc.end.column >= positions[i]["column"]) {
+                        } else if (node.loc.end.line == positions[i]["lineNumber"]) {
+                            if (node.loc.end.column > positions[i]["column"]) {
                                 numNodesCommonParent++;
                             }
                         } else {
@@ -54,6 +54,10 @@ function findClosestCommonParent(ast, positions) {
             }
         }
     })
+    // if no parentNode found, then position is after last character and parentNode = "Program"
+    if (parentNode == null) {
+        parentNode = ast.program;
+    }
     return parentNode;
 }
 
@@ -78,8 +82,27 @@ function findClosestParent(ast, position) {
  */
 function findPreviousSibling(ast, position) {
     var parentNode = findClosestParent(ast, position);
-
-    return null;
+    var prevSibling = null;
+    // loop through index
+    for (var i = 0; i < parentNode.body.length; i++) {
+        // make node the ith node in the body
+        var node = parentNode.body[i];
+        // if the node is before the cursor ==> prevSibling
+        if (node.loc.end.line < position.lineNumber) {
+            prevSibling = node;
+            // if node is same line as cursor
+        } else if (node.loc.end.line == position.lineNumber) {
+            // check if node ends before or at cursor
+            if (node.loc.end.column <= position.column) {
+                prevSibling = node;
+            }
+            // if node starts on line after cursor ==> break
+        } else if (node.loc.start.line > position.lineNumber) {
+            break;
+        }
+    }
+    
+    return prevSibling;
 }
 
 /**
@@ -115,11 +138,11 @@ function indentCode(code, tabs) {
  */
 function buttonHandler(i) {
     var template = blockDict[i]["code"];
-    var buffer = editor.getValue();
-    var position = editor.getPosition();
+    var ast = recast.parse(editor.getValue());
+    var position = getPosition();
 
     // add block to buffer string and update editor
-    var new_text = addBlock(template, buffer, position);
+    var new_text = addBlock(template, ast, position);
     var ast = recast.parse(new_text);
     editor.setValue(recast.print(ast).code);
    
@@ -130,16 +153,29 @@ function buttonHandler(i) {
 /**
  * Adds a block based on button keyword
  * @param {string} template - A string of block of text to add.
- * @param {string} buffer - A string of text from the editor.
+ * @param {ast} AST - Parsed text from the editor.
  * @param {Position} position - A lineNumber and column object.
- * @returns {string} Updated text string
+ * @returns {buffer} Updated text string
  */
-function addBlock(template, buffer, position) {
-    var firstPart = getBeforePosition(buffer, position);
-    var lastPart = getAfterPosition(buffer, position);
-    var tabs = getIndent(position);
+function addBlock(template, ast, position) {
+    // findPreviousSibling location
+    var prevSibling = findPreviousSibling(ast, position);
+    var parentNode = null;
+    if (prevSibling) {
+        var pos = { lineNumber: prevSibling.loc.start.line, column: prevSibling.loc.start.column };
+        parentNode = findClosestParent(ast, pos);
+    } else {
+        parentNode = findClosestParent(ast, position);
+    }
+    
+        // parse template
+    var parsedTemplate = recast.parse(template);
 
-    return [firstPart, indentCode(template, tabs), lastPart].join("");
+    // parentNode should be pointer, so just append
+    index = parentNode.body.indexOf(prevSibling);
+    parentNode.body.splice(index + 1, 0, parsedTemplate.program.body[0]);
+    // return buffer
+    return recast.print(ast).code;
 }
 
 /**

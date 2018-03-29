@@ -173,17 +173,21 @@ function addBlocksHTML() {
     }
 }
 
-// attempt to export the module for testing purposes
-// if this fails, we're running a browser, so we just ignore the error
+// Attempt to export the module for testing purposes. If we get a
+// ReferenceError on "module", assume we're running a browser and ignore it.
+// Re-throw all other errors.
 try {
-    module.exports = { 
+    module.exports = {
         findClosestCommonParent,
         findClosestParent,
         findPreviousSibling,
-        getIndent, 
-        indentCode, 
-        getBeforePosition, 
-        getAfterPosition
-    }; 
-} catch (referenceError) {
+    };
+} catch (error) {
+    if (!(error instanceof ReferenceError)) {
+        throw error;
+    }
+    var undefinedReference = error.message.split(" ")[0];
+    if (undefinedReference !== "module") {
+        throw error;
+    }
 }

@@ -178,9 +178,9 @@ function addBlocksHTML() {
 // Re-throw all other errors.
 try {
     module.exports = {
-        findClosestCommonParent,
-        findClosestParent,
-        findPreviousSibling,
+        "findClosestCommonParent": findClosestCommonParent,
+        "findClosestParent": findClosestParent,
+        "findPreviousSibling": findPreviousSibling,
     };
 } catch (error) {
     if (!(error instanceof ReferenceError)) {

@@ -106,33 +106,6 @@ function findPreviousSibling(ast, position) {
 }
 
 /**
- * Calculates number of necessary tabs from cursor position for correct indenting
- * @param {Position} position - A lineNumber and column object.
- * @returns {string} String of tabs
- */
-function getIndent(position) {
-    var tabs = "";
-    for (var i = 0; i < position.column - 2; i = i + 4) {
-        tabs += "\t";
-    }
-    return tabs;
-}
-
-/**
- * Indents block of code
- * @param {string} code - The text to be formatted.
- * @param {string} tabs - The calculated number of tabs.
- * @returns {string} 
- */
-function indentCode(code, tabs) {
-    var codeArray = code.split("\n");
-    for (var i = 1; i < codeArray.length; i++) {
-        codeArray[i] = tabs.concat(codeArray[i]);
-    }
-    return codeArray.join("\n");
-}
-
-/**
  * Handles button clicks
  * @param {number} i - Index of code in dictionary
  */

@@ -106,33 +106,6 @@ function findPreviousSibling(ast, position) {
 }
 
 /**
- * Calculates number of necessary tabs from cursor position for correct indenting
- * @param {Position} position - A lineNumber and column object.
- * @returns {string} String of tabs
- */
-function getIndent(position) {
-    var tabs = "";
-    for (var i = 0; i < position.column - 2; i = i + 4) {
-        tabs += "\t";
-    }
-    return tabs;
-}
-
-/**
- * Indents block of code
- * @param {string} code - The text to be formatted.
- * @param {string} tabs - The calculated number of tabs.
- * @returns {string} 
- */
-function indentCode(code, tabs) {
-    var codeArray = code.split("\n");
-    for (var i = 1; i < codeArray.length; i++) {
-        codeArray[i] = tabs.concat(codeArray[i]);
-    }
-    return codeArray.join("\n");
-}
-
-/**
  * Handles button clicks
  * @param {number} i - Index of code in dictionary
  */
@@ -167,10 +140,8 @@ function addBlock(template, ast, position) {
     } else {
         parentNode = findClosestParent(ast, position);
     }
-    
-        // parse template
+    // parse template
     var parsedTemplate = recast.parse(template);
-
     // parentNode should be pointer, so just append
     index = parentNode.body.indexOf(prevSibling);
     parentNode.body.splice(index + 1, 0, parsedTemplate.program.body[0]);
@@ -200,44 +171,6 @@ function addBlocksHTML() {
         // adds a break element to make a column of blocks
         buttonContainer.appendChild(document.createElement("br"));
     }
-}
-
-/**
- * Returns a string containing characters before cursor position
- * @param {string} buffer - A string of text from the editor.
- * @param {Position} position - A lineNumber and column object.
- * @returns {string} A string of text before cursor position.
- */
-function getBeforePosition(buffer, position) {
-    var splitBuffer = buffer.split("\n");
-    var firstPart = splitBuffer.slice(0, position.lineNumber - 1);
-    var sameLine = splitBuffer.slice(position.lineNumber - 1, position.lineNumber).join('');
-    sameLine = sameLine.split('');
-    if (position.column > 0){
-        position.column = position.column - 1;
-    }
-    sameLine = sameLine.slice(0, position.column).join('');
-    firstPart.push(sameLine);
-
-    return firstPart.join('\n');
-}
-
-/**
- * Returns a string containing characters after cursor position
- *
- * @param {string} buffer - A string of text from the editor.
- * @param {Position} position - A lineNumber and column object.
- * @returns {string} A string of text after cursor position.
- */
-function getAfterPosition(buffer, position) {
-    var splitBuffer = buffer.split("\n");                                                
-    var lastPart = splitBuffer.slice(position.lineNumber);                                     
-    var sameLine = splitBuffer.slice(position.lineNumber - 1, position.lineNumber).join('');    
-    sameLine = sameLine.split('');                                                             
-    sameLine = sameLine.slice(position.column - 1).join('');
-    lastPart.unshift(sameLine);                                                              
-
-    return lastPart.join('\n');                                                             
 }
 
 // attempt to export the module for testing purposes

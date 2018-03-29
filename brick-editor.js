@@ -2,19 +2,65 @@
 var recast = require("recast");
 var estraverse = require("estraverse");
 
+// USER INTERFACE CODE
+
+/**
+ * Adds the HTML blocks to the button container
+ */
+function addBlocksHTML() {
+    for (var i = 0; i < blockDict.length; i++) {
+        var HTMLfunction = 'buttonHandler(\'' + i + '\')';
+
+        // creates button and sets all attributes
+        var block = document.createElement("button");
+        block.setAttribute("type", "button");
+        block.setAttribute("class", "addBlockButton");
+        block.appendChild(document.createTextNode(blockDict[i]['blockName']));
+        block.setAttribute("style", "background-color:" + blockDict[i]['buttonColor']);
+        block.setAttribute("onclick", HTMLfunction);
+
+        // adds the new button inside the buttonContainer class at end
+        var buttonContainer = document.getElementById("buttonContainer");
+        buttonContainer.appendChild(block);
+
+        // adds a break element to make a column of blocks
+        buttonContainer.appendChild(document.createElement("br"));
+    }
+}
+
 // EVENT HANDLERS
+
+/**
+ * Handles button clicks
+ * @param {number} i - Index of code in dictionary
+ */
+function buttonHandler(i) {
+    var template = blockDict[i]["code"];
+    var ast = recast.parse(editor.getValue());
+    var position = getPosition();
+
+    // add block to buffer string and update editor
+    var new_text = addBlock(template, ast, position);
+    var ast = recast.parse(new_text);
+    editor.setValue(recast.print(ast).code);
+   
+    // update cursor position
+    editor.setPosition(position);
+}
+
+// EDITOR INTERFACE CODE
+
 function getPosition() {
     var position = editor.getPosition();
     position.column = position.column - 1;
     return position;
 }
 
-// EDITOR INTERFACE CODE
-
 function setPosition(position) {
     position.column = position.column + 1;
     editor.setPosition(position);
 }
+
 // TEXT EDITING CODE
 
 /**
@@ -106,24 +152,6 @@ function findPreviousSibling(ast, position) {
 }
 
 /**
- * Handles button clicks
- * @param {number} i - Index of code in dictionary
- */
-function buttonHandler(i) {
-    var template = blockDict[i]["code"];
-    var ast = recast.parse(editor.getValue());
-    var position = getPosition();
-
-    // add block to buffer string and update editor
-    var new_text = addBlock(template, ast, position);
-    var ast = recast.parse(new_text);
-    editor.setValue(recast.print(ast).code);
-   
-    // update cursor position
-    editor.setPosition(position);
-}
-
-/**
  * Adds a block based on button keyword
  * @param {string} template - A string of block of text to add.
  * @param {ast} AST - Parsed text from the editor.
@@ -147,30 +175,6 @@ function addBlock(template, ast, position) {
     parentNode.body.splice(index + 1, 0, parsedTemplate.program.body[0]);
     // return buffer
     return recast.print(ast).code;
-}
-
-/**
- * Adds the HTML blocks to the button container
- */
-function addBlocksHTML() {
-    for (var i = 0; i < blockDict.length; i++) {
-        var HTMLfunction = 'buttonHandler(\'' + i + '\')';
-
-        // creates button and sets all attributes
-        var block = document.createElement("button");
-        block.setAttribute("type", "button");
-        block.setAttribute("class", "addBlockButton");
-        block.appendChild(document.createTextNode(blockDict[i]['blockName']));
-        block.setAttribute("style", "background-color:" + blockDict[i]['buttonColor']);
-        block.setAttribute("onclick", HTMLfunction);
-
-        // adds the new button inside the buttonContainer class at end
-        var buttonContainer = document.getElementById("buttonContainer");
-        buttonContainer.appendChild(block);
-
-        // adds a break element to make a column of blocks
-        buttonContainer.appendChild(document.createElement("br"));
-    }
 }
 
 // Attempt to export the module for testing purposes. If we get a

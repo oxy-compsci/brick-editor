@@ -2,9 +2,16 @@
 
 var assert = require("assert");
 var recast = require("recast");
-var estraverse = require("estraverse");
 var brickEditor = require("./brick-editor.js");
 
+/**
+ * Assert that two values are equal, and print a message otherwise.
+ *
+ * @param {any} actual - the actual value of a test
+ * @param {any} expected - the expected value of a test
+ * @param {string} msg - the error message to print
+ * @returns {undefined}
+ */
 function assertEqual(actual, expected, msg) {
     assert(
         expected === actual,
@@ -12,6 +19,17 @@ function assertEqual(actual, expected, msg) {
     );
 }
 
+/**
+ * Check that an AST node is what we expect it to be
+ *
+ * @param {AST} node - the AST node to check
+ * @param {string} type - the expected type of the AST node
+ * @param {int} start_line - the expected start line of the AST node
+ * @param {int} start_col - the expected start column of the AST node
+ * @param {int} end_line - the expected end line of the AST node
+ * @param {int} end_col - the expected end column of the AST node
+ * @returns {undefined}
+ */
 function checkASTPosition(node, type, start_line, start_col, end_line, end_col) {
     // check if node is supposed to be null
     if (node == null) {
@@ -25,6 +43,11 @@ function checkASTPosition(node, type, start_line, start_col, end_line, end_col) 
     } 
 }
 
+/**
+ * Test findClosestParent on block statements with a single line.
+ *
+ * @returns {undefined}
+ */
 function testClosestParentNearBraces() {
     var ast = recast.parse([
         "function log(s) {",
@@ -60,6 +83,11 @@ function testClosestParentNearBraces() {
     checkASTPosition(parentNode, "BlockStatement", 1, 16, 3, 1);
 }
 
+/**
+ * Test findClosestParent on block statements with multiple lines.
+ *
+ * @returns {undefined}
+ */
 function testClosestParentMultipleLines() {
     var ast = recast.parse([
         "function log(s) {",
@@ -102,6 +130,11 @@ function testClosestParentMultipleLines() {
     checkASTPosition(parentNode, "BlockStatement", 1, 16, 5, 1);
 }
 
+/**
+ * Test findClosestParent on nested block statements.
+ *
+ * @returns {undefined}
+ */
 function testClosestParentNested() {
     var ast = recast.parse([
         "function log(s) {",
@@ -165,29 +198,34 @@ function testClosestParentNested() {
     parentNode = brickEditor.findClosestParent(ast, position);
     checkASTPosition(parentNode, "BlockStatement", 13, 15, 17, 9);
 
-    var ast = recast.parse([
-        'function Person(age) {',
-        '    if (age) {',
-        '        this.age = age;',
-        '    }',
-        '}'].join('\n'));
-
+    ast = recast.parse([
+        "function Person(age) {",
+        "    if (age) {",
+        "        this.age = age;",
+        "    }",
+        "}"
+    ].join("\n"));
     position = { "lineNumber": 3, "column": 23 };
     parentNode = brickEditor.findClosestParent(ast, position);
     checkASTPosition(parentNode, "BlockStatement", 2, 13, 4, 5);
 }
 
+/**
+ * Test findPreviousSibling.
+ *
+ * @returns {undefined}
+ */
 function testFindPreviousSibling() {
     var ast = recast.parse([
-        'function test(a) {',
-        '    var a = 3;',
-        '    if (a == 3) {',
-        '        print(5);',
-        '    } else {',
-        '            ',
-        '    }',
-        '    return a;',
-        '}'].join('\n'));
+        "function test(a) {",
+        "    var a = 3;",
+        "    if (a == 3) {",
+        "        print(5);",
+        "    } else {",
+        "            ",
+        "    }",
+        "    return a;",
+        "}"].join("\n"));
     var position = null;
     var prevSibling = null;
 

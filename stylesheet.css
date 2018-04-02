@@ -37,3 +37,7 @@ body {
     margin: 0px auto;
     cursor: pointer;
 }
+
+.highlight {
+    background-color: #8a08b5;
+}

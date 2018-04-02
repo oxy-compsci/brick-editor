@@ -1,6 +1,7 @@
 // load node modules
 var recast = require("recast");
 var estraverse = require("estraverse");
+var decorations = null;
 
 // EVENT HANDLERS
 
@@ -10,18 +11,43 @@ function backspaceHandler() {
     var position = getPosition();
     var buffer = editor.getValue();
     var ast = recast.parse(buffer);
+    var parentNode = null;
+    var prevSibling = null;
     if (selection) {
-        editor.setValue(deleteSelected(ast, selection));
+        var nodes = deleteSelected(ast, selection);
+        parentNode = nodes[0];
+        prevSibling = nodes[1];
+        console.log(selection);
+        console.log('parentNode', parentNode, parentNode.loc);
+        console.log('prevSib', prevSibling, prevSibling.loc);
+        highlight(prevSibling.loc.start.line, prevSibling.loc.start.column, prevSibling.loc.end.line, prevSibling.loc.end.column);
+        setTimeout(function () {
+            var response = confirm("Are you sure you wish to delete?");
+            if (response) {
+                editor.setValue(deleteBlock(ast, parentNode, prevSibling));
+            } else {
+                unhighlight();
+            }
+        }, 100);
     }
     else {
-        if (cursorAtEndOfBlock(buffer, position)) {
-            if (confirmDelete()) {
-                editor.setValue(deleteBlock(ast, position));
-            } else {
-                // delete char
-                editor.setValue(deleteChar(buffer, position));
-                editor.setPosition(position);
-            }
+        if (cursorAtEndOfBlock(ast, position)) {
+            parentNode = findClosestParent(ast, position);
+            prevSibling = findPreviousSibling(ast, position);
+            highlight(prevSibling.loc.start.line, prevSibling.loc.start.column, prevSibling.loc.end.line, prevSibling.loc.end.column);
+            setTimeout(function () {
+                var response = confirm("Are you sure you wish to delete?");
+                if (response) {
+                    editor.setValue(deleteBlock(ast, parentNode, prevSibling));
+                } else {
+                    unhighlight();
+                }
+            }, 100);
+        } else {
+            console.log('delete char');
+            // delete char 
+            editor.setValue(deleteChar(buffer, position));
+            setPosition(position);
         }
     }
 }
@@ -51,7 +77,7 @@ function getSelection() {
 }
 
 function hasSelected() {
-    var selection = getSelection;
+    var selection = getSelection();
     if (editor.getModel().getValueInRange(selection)) {
         return selection;
     }
@@ -62,9 +88,13 @@ function highlight(startLine, startColumn, endLine, endColumn) {
     decorations = editor.deltaDecorations([], [
         {
             range: new monaco.Range(startLine, startColumn, endLine, endColumn),
-            options: { isWholeLine: true, className: 'highlight' }
+            options: { isWholeLine: false, className: 'highlight' }
         }
     ]);
+}
+
+function unhighlight() {
+    decorations = editor.deltaDecorations(decorations, []);
 }
 
 function confirmDelete() {
@@ -123,7 +153,6 @@ function findClosestCommonParent(ast, positions) {
     return parentNode;
 }
 
-
 /**
  * Find the closest parent node that contains the position.
  *
@@ -136,7 +165,65 @@ function findClosestParent(ast, position) {
 }
 
 /**
- * Find the immediately previous sibling to the position.
+ * Find the closest parent node that is able to be deleted.
+ *
+ * @param {AST} ast - the root of the AST to search through.
+ * @param {[Location]} positions - List of lineNumber and column objects.
+ * @returns {node} 
+ */
+function findClosestCommonDeletableBlock(ast, positions) {
+    var parentNode = null;
+    estraverse.traverse(ast.program, {
+        enter: function (node) {
+            var numNodesCommonParent = 0;
+            for (var i = 0; i < positions.length; i++) {
+                if (node.loc.start.line > positions[i]["lineNumber"]) {
+                    this.break();
+                }
+                if (node.loc.start.line <= positions[i]["lineNumber"] && node.loc.end.line >= positions[i]["lineNumber"]) {
+                    if ((node.type === "IfStatement" ||
+                        node.type === "ForStatement" ||
+                        node.type === "FunctionDeclaration" ||
+                        node.type === "WhileStatement")) {
+                        if (node.loc.start.line == positions[i]["lineNumber"]) {
+                            if (node.loc.start.column <= positions[i]["column"]) {
+                                numNodesCommonParent++;
+                            }
+                        } else if (node.loc.end.line == positions[i]["lineNumber"]) {
+                            if (node.loc.end.column >= positions[i]["column"]) {
+                                numNodesCommonParent++;
+                            }
+                        } else {
+                            numNodesCommonParent++;
+                        }
+                    }
+                }
+            }
+            if (numNodesCommonParent == positions.length) {
+                parentNode = node;
+            }
+        }
+    })
+    // if no parentNode found, then position is after last character and parentNode = "Program"
+    if (parentNode == null) {
+        parentNode = ast.program;
+    }
+    return parentNode;
+}
+
+/**
+ * Find the closest deletable block that contains the position.
+ *
+ * @param {AST} ast - the root of the AST to search through.
+ * @param {Location} position - A lineNumber and column object.
+ * @returns {node} 
+ */
+function findClosestDeletableBlock(ast, position) {
+    return findClosestCommonDeletableBlock(ast, [position]);
+}
+
+/**
+ * Find the immediate previous sibling to the position.
  *
  * @param {AST} ast - the root of the AST to search through.
  * @param {Location} positions - A lineNumber and column object.
@@ -145,23 +232,20 @@ function findClosestParent(ast, position) {
 function findPreviousSibling(ast, position) {
     var parentNode = findClosestParent(ast, position);
     var prevSibling = null;
-    // loop through index
     for (var i = 0; i < parentNode.body.length; i++) {
-        // make node the ith node in the body
         var node = parentNode.body[i];
-        // if the node is before the cursor ==> prevSibling
         if (node.loc.end.line < position.lineNumber) {
             prevSibling = node;
-            // if node is same line as cursor
         } else if (node.loc.end.line == position.lineNumber) {
-            // check if node ends before or at cursor
             if (node.loc.end.column <= position.column) {
                 prevSibling = node;
             }
-            // if node starts on line after cursor ==> break
         } else if (node.loc.start.line > position.lineNumber) {
             break;
         }
+    }
+    return prevSibling;
+}
 
 /**
  * Find whether cursor is at end of block
@@ -173,14 +257,14 @@ function cursorAtEndOfBlock(ast, position) {
     var endOfBlock = false;
     estraverse.traverse(ast.program, {
         enter: function (node) {
-            if ((node.type == "IfStatement" ||
-                node.type == "ForStatement" ||
-                node.type == "FunctionDeclaration" ||
-                node.type == "WhileStatement" ||
-                node.type == "VariableDeclaration" ||
-                node.type == "ExpressionStatement") &&
+            if ((node.type === "IfStatement" ||
+                node.type === "ForStatement" ||
+                node.type === "FunctionDeclaration" ||
+                node.type === "WhileStatement" ||
+                node.type === "VariableDeclaration" ||
+                node.type === "ExpressionStatement" ||
+                node.type === "ReturnStatement") &&
                 position.lineNumber == node.loc.end.line && position.column == node.loc.end.column) {
-                highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
                 endOfBlock = true;
             }
         }
@@ -197,34 +281,36 @@ function cursorAtEndOfBlock(ast, position) {
  * @returns {string} buffer
  */
 function deleteSelected(ast, selectionPosition) {
-    var startPosition = { lineNumber: selectionPosition.startLineNumber, column: selectionPosition.startColumn };
-    var endPosition = { lineNumber: selectionPosition.endLineNumber, column: selectionPosition.endColumn };
-    var parentNode = findClosestParent(ast, startPosition);
-    if (findClosestParent(ast, startPosition) == findClosestParent(ast, endPosition)) {
-        // if selection is a block, delete the block using deleteBlock
-        return deleteBlock(ast, parentNode.loc.end);
+    var startPosition = { "lineNumber": selectionPosition.startLineNumber, "column": selectionPosition.startColumn };
+    var endPosition = { "lineNumber": selectionPosition.endLineNumber, "column": selectionPosition.endColumn };
+    var parentNode = null;
+    var prevSibling = null;
+    if (findClosestDeletableBlock(ast, startPosition) === findClosestDeletableBlock(ast, endPosition)) {
+        prevSibling = findClosestDeletableBlock(ast, startPosition);
+        parentNode = findClosestParent(ast, startPosition);
     } else {
-        var positions = [startPosition, endPosition];
-        parentNode = findClosestCommonParent(ast, positions);
-        return deleteBlock(ast, parentNode.loc.end);
+        prevSibling = findClosestCommonDeletableBlock(ast, [startPosition, endPosition]);
+        parentNode = findClosestCommonParent(ast, [{ "lineNumber": prevSibling.loc.start.line, "column": prevSibling.loc.start.column }, { "lineNumber": prevSibling.loc.end.line, "column": prevSibling.loc.end.column }]);
     }
-    return buffer;
+    return [parentNode, prevSibling]; 
 }
 
 /**
  * Delete a node
- * @param {Position} position - The position of the cursor.
+ * @param {ast} AST - The parsed text.
+ * @param {node} parentNode - The parent node to delete from.
+ * @param {node} prevSibling - The sibling node to reference from.
  * @returns {string} Text with block removed
  */
-function deleteBlock(ast, position) {
-    estraverse.replace(ast.program, {
-        leave: function (node) {
-            if (position.lineNumber == node.loc.end.line && position.column == node.loc.end.column) {
-                this.remove();
-            }
-        }
-    });
-
+function deleteBlock(ast, parentNode, prevSibling) {
+    if (prevSibling) {
+        var index = parentNode.body.indexOf(prevSibling);
+        parentNode.body.splice(index, 1);
+        parentNode.body.splice(index, 0, " ");
+    } else {
+        parentNode.body.splice(0, 1);
+        parentNode.body.splice(0, 0, " ");
+    }
     return recast.print(ast).code;
 }
 
@@ -233,29 +319,13 @@ function deleteBlock(ast, position) {
  * 
  */
 function deleteChar(buffer, position) {
-    var beginPosition = { lineNumber: position.lineNumber, column: position.column - 1 }
+    var beginPosition = { lineNumber: position.lineNumber, column: position.column }
     console.log(position.column - 1);
     var firstPart = getBeforePosition(buffer, beginPosition);
     var lastPart = getAfterPosition(buffer, position);
     return [firstPart, lastPart].join('');
 }
 
-/**
- * Confirm delete
- */
-function confirmDelete(position){
-    setTimeout(function () {
-        var response = confirm("Are you sure you wish to delete?");
-        if (response) {
-            editor.setValue(deleteBlock(position));
-        }
-    }, 100);
-}
-
-    }
-    
-    return prevSibling;
-}
 
 /**
  * Handles button clicks

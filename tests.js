@@ -293,10 +293,10 @@ function testFindClosestCommonParent() {
     position2 = { "lineNumber": 12, "column": 1 };
     parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
     checkASTPosition(parentNode, "Program", 1, 0, 12, 1);
-  
+
     // before function opening curly brace and before function closing curly brace 
     position1 = { "lineNumber": 1, "column": 17 };
-    position2 = { "lineNumber": 12, "column": 0 }; 
+    position2 = { "lineNumber": 12, "column": 0 };
     parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
     checkASTPosition(parentNode, "BlockStatement", 1, 17, 12, 1);
 
@@ -325,7 +325,7 @@ function testFindClosestCommonParent() {
     checkASTPosition(parentNode, "BlockStatement", 1, 17, 12, 1);
 
     // after return a and after print(5) 
-    position1 = { "lineNumber": 11, "column": 13 }; 
+    position1 = { "lineNumber": 11, "column": 13 };
     position2 = { "lineNumber": 4, "column": 17 };
     parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
     checkASTPosition(parentNode, "BlockStatement", 1, 17, 12, 1);
@@ -335,8 +335,9 @@ function testFindClosestCommonParent() {
     position2 = { "lineNumber": 12, "column": 1 };
     parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
     checkASTPosition(parentNode, "Program", 1, 0, 12, 1);
+}
 
-  function testFindClosestDeletableBlock() {
+function testFindClosestDeletableBlock() {
     var ast = recast.parse([
         'function test(a) {',
         '    var a = 3;',

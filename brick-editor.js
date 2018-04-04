@@ -112,6 +112,7 @@ function deleteHandler() {
             setPosition(position);
         }
     }
+}
 
 /**
  * Handles button clicks

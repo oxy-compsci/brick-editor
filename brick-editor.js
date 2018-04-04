@@ -294,7 +294,7 @@ function findClosestCommonDeletableBlock(ast, positions) {
                 deleteNode = node;
             }
         }
-    })
+    });
     // if no parentNode found, then position is after last character and parentNode = "Program"
     if (deleteNode == null) {
         deleteNode = ast.program;
@@ -431,7 +431,7 @@ function deleteBlock(ast, node) {
  * 
  */
 function backspaceChar(buffer, position) {
-    var beginPosition = { lineNumber: position.lineNumber, column: position.column - 1 }
+    var beginPosition = { lineNumber: position.lineNumber, column: position.column - 1 };
     var firstPart = getBeforePosition(buffer, beginPosition);
     var lastPart = getAfterPosition(buffer, position);
     return [firstPart, lastPart].join('');
@@ -442,7 +442,7 @@ function backspaceChar(buffer, position) {
  * 
  */
 function deleteChar(buffer, position) {
-    var endPosition = { lineNumber: position.lineNumber, column: position.column + 1 }
+    var endPosition = { lineNumber: position.lineNumber, column: position.column + 1 };
     var firstPart = getBeforePosition(buffer, position);
     var lastPart = getAfterPosition(buffer, endPosition);
     return [firstPart, lastPart].join('');

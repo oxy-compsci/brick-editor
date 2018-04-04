@@ -270,8 +270,76 @@ function testFindPreviousSibling() {
     checkASTPosition(prevSibling, "FunctionDeclaration", 1, 0, 9, 1);
 }
 
+function testFindClosestCommonParent() {
+    var ast = recast.parse([
+        'function test(a) {',
+        '    var a = 3;',
+        '    if (a == 3) {',
+        '        print(5);',
+        '    } else {',
+        '        while (true) {',
+        '            print(3);',
+        '            break;',
+        '        }',
+        '    }',
+        '    return a;',
+        '}'].join('\n'));
+    var position1 = null;
+    var position2 = null;
+    var parentNode = null;
+
+    // before function declaration and after closing curly brace 
+    position1 = { "lineNumber": 1, "column": 0 };
+    position2 = { "lineNumber": 12, "column": 1 };
+    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
+    checkASTPosition(parentNode, "Program", 1, 0, 12, 1);
+
+    // before function opening curly brace and before function closing curly brace 
+    position1 = { "lineNumber": 1, "column": 17 };
+    position2 = { "lineNumber": 12, "column": 0 }; 
+    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
+    checkASTPosition(parentNode, "BlockStatement", 1, 17, 12, 1);
+
+    // before var a and before print(3) 
+    position1 = { "lineNumber": 2, "column": 4 };
+    position2 = { "lineNumber": 7, "column": 12 };
+    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
+    checkASTPosition(parentNode, "BlockStatement", 1, 17, 12, 1);
+
+    // in print(3) and after break; 
+    position1 = { "lineNumber": 7, "column": 15 };
+    position2 = { "lineNumber": 8, "column": 18 };
+    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
+    checkASTPosition(parentNode, "BlockStatement", 6, 21, 9, 9);
+
+    // before if opening curly brace and before print(5) 
+    position1 = { "lineNumber": 3, "column": 16 };
+    position2 = { "lineNumber": 4, "column": 8 };
+    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
+    checkASTPosition(parentNode, "BlockStatement", 3, 16, 5, 5);
+
+    // before print(5) and in while statement 
+    position1 = { "lineNumber": 4, "column": 0 };
+    position2 = { "lineNumber": 6, "column": 11 };
+    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
+    checkASTPosition(parentNode, "BlockStatement", 1, 17, 12, 1);
+
+    // after return a and after print(5) 
+    position1 = { "lineNumber": 11, "column": 13 }; 
+    position2 = { "lineNumber": 4, "column": 17 };
+    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
+    checkASTPosition(parentNode, "BlockStatement", 1, 17, 12, 1);
+
+    // before function opening curly brace and after function closing curly brace 
+    position1 = { "lineNumber": 1, "column": 17 };
+    position2 = { "lineNumber": 12, "column": 1 };
+    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
+    checkASTPosition(parentNode, "Program", 1, 0, 12, 1);
+} 
+
 
 testClosestParentNearBraces();
 testClosestParentMultipleLines();
 testClosestParentNested();
 testFindPreviousSibling();
+testFindClosestCommonParent();

@@ -50,7 +50,7 @@ function buttonHandler(i) { // eslint-disable-line no-unused-vars
     var new_text = addBlock(template, ast, cursor);
     ast = recast.parse(new_text);
     editor.setValue(recast.print(ast).code);
-   
+
     // update cursor cursor
     // FIXME calculate new cursor
     setCursor(cursor);
@@ -130,7 +130,7 @@ function findClosestCommonParent(ast, cursors) {
                             numNodesCommonParent++;
                         }
                     }
-                } 
+                }
             }
             if (numNodesCommonParent == cursors.length) {
                 parentNode = node;
@@ -183,7 +183,7 @@ function findPreviousSibling(ast, cursor) {
             break;
         }
     }
-    
+
     return prevSibling;
 }
 

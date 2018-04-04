@@ -37,6 +37,7 @@ function addBlocksHTML() { // eslint-disable-line no-unused-vars
 
 /**
  * Called when backspace key is pressed
+ * @returns {undefined}
  */
 function backspaceHandler() {
     // if has selected, delete selected
@@ -80,6 +81,7 @@ function backspaceHandler() {
 
 /**
  * Called when delete key is pressed
+ * @returns {undefined}
  */
 function deleteHandler() {
     // if has selected, delete selected
@@ -199,22 +201,24 @@ function hasSelected() {
 
 /**
  * Highlights editor text based on start/end lineNumbers and start/end columns
- * @param {any} startLine
- * @param {any} startColumn
- * @param {any} endLine
- * @param {any} endColumn
+ * @param {any} startLine - LineNumber where range will start
+ * @param {any} startColumn - Column where range will start
+ * @param {any} endLine - LineNumber where range will end
+ * @param {any} endColumn - Column where range will end
+ * @returns {undefined}
  */
 function highlight(startLine, startColumn, endLine, endColumn) {
     decorations = editor.deltaDecorations([], [
         {
             range: new monaco.Range(startLine, startColumn, endLine, endColumn),
-            options: { isWholeLine: false, className: 'highlight' }
+            options: { isWholeLine: false, className: "highlight" }
         }
     ]);
 }
 
 /**
  * Removes all decorations and highlighting from the editor
+ * @returns {undefined}
  */
 function unhighlight() {
     decorations = editor.deltaDecorations(decorations, []);
@@ -271,7 +275,7 @@ function findClosestCommonParent(ast, positions) {
  *
  * @param {AST} ast - The root of the AST to search through.
  * @param {Location} position - A LineNumber and Column object.
- * @returns {node} - The AST node of the parent.
+ * @returns {node} parentNode
  */
 function findClosestParent(ast, position) {
     return findClosestCommonParent(ast, [position]);
@@ -282,7 +286,7 @@ function findClosestParent(ast, position) {
  *
  * @param {AST} ast - The root of the AST to search through.
  * @param {[Location]} positions - List of lineNumber and column objects.
- * @returns {node} 
+ * @returns {node} deletable node
  */
 function findClosestCommonDeletableBlock(ast, positions) {
     var deleteNode = null;
@@ -332,7 +336,7 @@ function findClosestCommonDeletableBlock(ast, positions) {
  *
  * @param {AST} ast - The root of the AST to search through.
  * @param {Location} position - A lineNumber and column object.
- * @returns {node} 
+ * @returns {node} deletable node
  */
 function findClosestDeletableBlock(ast, position) {
     return findClosestCommonDeletableBlock(ast, [position]);
@@ -366,8 +370,8 @@ function findPreviousSibling(ast, position) {
 /**
  * Find whether cursor is at end of block
  * @param {AST} ast - The root of the ast to search through.
- * @param {position} - A lineNumber and column object.
- * @returns {boolean}
+ * @param {Location} - A lineNumber and column object.
+ * @returns {boolean} Is cursor at end of block?
  */
 function cursorAtEndOfBlock(ast, position) {
     var endOfBlock = false;
@@ -391,8 +395,8 @@ function cursorAtEndOfBlock(ast, position) {
 /**
  * Find whether cursor is at beginning of block
  * @param {AST} ast - The root of the ast to search through.
- * @param {position} - A lineNumber and column object.
- * @returns {boolean} 
+ * @param {Location} - A lineNumber and column object.
+ * @returns {boolean} Is cursor at beginning of block?
  */
 function cursorAtBegOfBlock(ast, position) {
     var begOfBlock = false;
@@ -417,7 +421,7 @@ function cursorAtBegOfBlock(ast, position) {
 
 /**
  * Delete selected text
- * @param {ast} AST - The root of the ast to delete from.
+ * @param {AST} ast - The root of the ast to delete from.
  * @param {[Position]} selectionPosition - Start line and column, end line and column of selection
  * @returns {string} buffer
  */
@@ -436,8 +440,7 @@ function deleteSelected(ast, selectionPosition) {
 /**
  * Delete a node
  * @param {AST} ast - The parsed text.
- * @param {node} parentNode - The parent node to delete from.
- * @param {node} prevSibling - The sibling node to reference from.
+ * @param {node} node - The node to delete.
  * @returns {string} Text with block removed
  */
 function deleteBlock(ast, node) {

@@ -232,8 +232,206 @@ function testFindPreviousSibling() {
     checkASTPosition(prevSibling, "FunctionDeclaration", 1, 0, 9, 1);
 }
 
+function testFindClosestCommonParent() {
+    var ast = recast.parse([
+        'function test(a) {',
+        '    var a = 3;',
+        '    if (a == 3) {',
+        '        print(5);',
+        '    } else {',
+        '        while (true) {',
+        '            print(3);',
+        '            break;',
+        '        }',
+        '    }',
+        '    return a;',
+        '}'].join('\n'));
+    var position1 = null;
+    var position2 = null;
+    var parentNode = null;
+
+    // before function declaration and after closing curly brace
+    position1 = { "lineNumber": 1, "column": 0 };
+    position2 = { "lineNumber": 12, "column": 1 };
+    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
+    checkASTPosition(parentNode, "Program", 1, 0, 12, 1);
+
+    // before function opening curly brace and before function closing curly brace
+    position1 = { "lineNumber": 1, "column": 17 };
+    position2 = { "lineNumber": 12, "column": 0 };
+    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
+    checkASTPosition(parentNode, "Program", 1, 0, 12, 1);
+
+    // before var a and before print(3)
+    position1 = { "lineNumber": 2, "column": 4 };
+    position2 = { "lineNumber": 7, "column": 12 };
+    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
+    checkASTPosition(parentNode, "BlockStatement", 1, 17, 12, 1);
+
+    // in print(3) and after break;
+    position1 = { "lineNumber": 7, "column": 15 };
+    position2 = { "lineNumber": 8, "column": 18 };
+    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
+    checkASTPosition(parentNode, "BlockStatement", 6, 21, 9, 9);
+
+    // before if opening curly brace and before print(5)
+    position1 = { "lineNumber": 3, "column": 16 };
+    position2 = { "lineNumber": 4, "column": 8 };
+    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
+    checkASTPosition(parentNode, "BlockStatement", 3, 16, 10, 5);
+
+    // before print(5) and in while statement
+    position1 = { "lineNumber": 4, "column": 0 };
+    position2 = { "lineNumber": 6, "column": 11 };
+    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
+    checkASTPosition(parentNode, "BlockStatement", 3, 16, 10, 5);
+
+    // after return a and after print(5)
+    position1 = { "lineNumber": 11, "column": 13 };
+    position2 = { "lineNumber": 4, "column": 17 };
+    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
+    checkASTPosition(parentNode, "BlockStatement", 1, 17, 12, 1);
+
+    // before function opening curly brace and after function closing curly brace
+    position1 = { "lineNumber": 1, "column": 17 };
+    position2 = { "lineNumber": 12, "column": 1 };
+    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
+    checkASTPosition(parentNode, "Program", 1, 0, 12, 1);
+}
+
+function testFindClosestDeletableBlock() {
+    var ast = recast.parse([
+        'function test(a) {',
+        '    var a = 3;',
+        '    if (a == 3) {',
+        '        print(5);',
+        '    } else {',
+        '        var b = 3;',
+        '    }',
+        '    for (var i = 0; i < 10; i++) {',
+        '        while (true) {',
+        '            // do something',
+        '        }',
+        '    }',
+        '    return a;',
+        '}'].join('\n'));
+    var position = null;
+    var deletableBlock = null;
+
+    // after function closing curly brace
+    position = { "lineNumber": 14, "column": 1 };
+    deletableBlock = brickEditor.findClosestDeletableBlock(ast, position);
+    checkASTPosition(deletableBlock, "FunctionDeclaration", 1, 0, 14, 1);
+
+    // after function opening curly brace
+    position = { "lineNumber": 1, "column": 18 };
+    deletableBlock = brickEditor.findClosestDeletableBlock(ast, position);
+    checkASTPosition(deletableBlock, "FunctionDeclaration", 1, 0, 14, 1);
+
+    // before if statement
+    position = { "lineNumber": 3, "column": 4 };
+    deletableBlock = brickEditor.findClosestDeletableBlock(ast, position);
+    checkASTPosition(deletableBlock, "IfStatement", 3, 4, 7, 5);
+
+    // in else statement
+    position = { "lineNumber": 5, "column": 7 };
+    deletableBlock = brickEditor.findClosestDeletableBlock(ast, position);
+    checkASTPosition(deletableBlock, "IfStatement", 3, 4, 7, 5);
+
+    // in for statement, after var i = 0;
+    position = { "lineNumber": 8, "column": 19 };
+    deletableBlock = brickEditor.findClosestDeletableBlock(ast, position);
+    checkASTPosition(deletableBlock, "ForStatement", 8, 4, 12, 5);
+
+    // in return a
+    position = { "lineNumber": 13, "column": 7 };
+    deletableBlock = brickEditor.findClosestDeletableBlock(ast, position);
+    checkASTPosition(deletableBlock, "ReturnStatement", 13, 4, 13, 13);
+
+    // after var b = 3;
+    position = { "lineNumber": 6, "column": 18 };
+    deletableBlock = brickEditor.findClosestDeletableBlock(ast, position);
+    checkASTPosition(deletableBlock, "VariableDeclaration", 6, 8, 6, 18);
+
+    // before var a = 3;
+    position = { "lineNumber": 2, "column": 4 };
+    deletableBlock = brickEditor.findClosestDeletableBlock(ast, position);
+    checkASTPosition(deletableBlock, "VariableDeclaration", 2, 4, 2, 14);
+    
+}
+
+function testFindClosestCommonDeletableBlock() {
+    var ast = recast.parse([
+        'function test(a) {',
+        '    var a = 3;',
+        '    if (a == 3) {',
+        '        print(5);',
+        '    } else {',
+        '        while (true) {',
+        '            print(3);',
+        '            break;',
+        '        }',
+        '    }',
+        '    return a;',
+        '}'].join('\n'));
+    var position1 = null;
+    var position2 = null;
+    var deletableBlock = null;
+
+    // before function declaration and after return a;
+    position1 = { "lineNumber": 1, "column": 0 };
+    position2 = { "lineNumber": 11, "column": 13 };
+    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
+    checkASTPosition(parentNode, "FunctionDeclaration", 1, 0, 12, 1);
+
+    // after function opening curly brace and before function closing curly brace
+    position1 = { "lineNumber": 1, "column": 18 };
+    position2 = { "lineNumber": 12, "column": 0 };
+    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
+    checkASTPosition(parentNode, "FunctionDeclaration", 1, 0, 12, 1);
+
+    // before var a and before print(3)
+    position1 = { "lineNumber": 2, "column": 4 };
+    position2 = { "lineNumber": 7, "column": 12 };
+    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
+    checkASTPosition(parentNode, "FunctionDeclaration", 1, 0, 12, 1);
+
+    // in print(3) and after break;
+    position1 = { "lineNumber": 7, "column": 15 };
+    position2 = { "lineNumber": 8, "column": 18 };
+    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
+    checkASTPosition(parentNode, "WhileStatement", 6, 8, 9, 9);
+
+    // before if opening curly brace and before print(5)
+    position1 = { "lineNumber": 3, "column": 16 };
+    position2 = { "lineNumber": 4, "column": 8 };
+    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
+    checkASTPosition(parentNode, "IfStatement", 3, 4, 10, 5);
+
+    // before print(5) and in while statement
+    position1 = { "lineNumber": 4, "column": 0 };
+    position2 = { "lineNumber": 6, "column": 11 };
+    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
+    checkASTPosition(parentNode, "IfStatement", 3, 4, 10, 5);
+
+    // after return a and after print(5)
+    position1 = { "lineNumber": 11, "column": 13 };
+    position2 = { "lineNumber": 4, "column": 17 };
+    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
+    checkASTPosition(parentNode, "FunctionDeclaration", 1, 0, 12, 1);
+
+    // before return a; and in return a;
+    position1 = { "lineNumber": 11, "column": 4 };
+    position2 = { "lineNumber": 11, "column": 10 };
+    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
+    checkASTPosition(parentNode, "ReturnStatement", 11, 4, 11, 13);
+}
+
 
 testClosestParentNearBraces();
 testClosestParentMultipleLines();
 testClosestParentNested();
 testFindPreviousSibling();
+testFindClosestCommonParent();
+testFindClosestDeletableBlock();
+testFindClosestCommonDeletableBlock();

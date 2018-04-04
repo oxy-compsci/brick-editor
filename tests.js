@@ -379,15 +379,15 @@ function testFindClosestDeletableBlock() {
     // in for statement, after var i = 0;
     position = { "lineNumber": 8, "column": 19 };
     deletableBlock = brickEditor.findClosestDeletableBlock(ast, position);
-    checkASTPosition(deletableBlock, "ForStatement", 8, 4, 12, 5);
+    checkASTPosition(deletableBlock, "VariableDeclaration", 8, 9, 8, 18);
 
     // in return a
     position = { "lineNumber": 13, "column": 7 };
     deletableBlock = brickEditor.findClosestDeletableBlock(ast, position);
     checkASTPosition(deletableBlock, "ReturnStatement", 13, 4, 13, 13);
 
-    // after var b = 3;
-    position = { "lineNumber": 6, "column": 18 };
+    // after var b = 3
+    position = { "lineNumber": 6, "column": 17 };
     deletableBlock = brickEditor.findClosestDeletableBlock(ast, position);
     checkASTPosition(deletableBlock, "VariableDeclaration", 6, 8, 6, 18);
 
@@ -420,49 +420,49 @@ function testFindClosestCommonDeletableBlock() {
     position1 = { "lineNumber": 1, "column": 0 };
     position2 = { "lineNumber": 11, "column": 13 };
     deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
-    checkASTPosition(parentNode, "FunctionDeclaration", 1, 0, 12, 1);
+    checkASTPosition(deletableBlock, "FunctionDeclaration", 1, 0, 12, 1);
 
     // after function opening curly brace and before function closing curly brace
     position1 = { "lineNumber": 1, "column": 18 };
     position2 = { "lineNumber": 12, "column": 0 };
     deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
-    checkASTPosition(parentNode, "FunctionDeclaration", 1, 0, 12, 1);
+    checkASTPosition(deletableBlock, "FunctionDeclaration", 1, 0, 12, 1);
 
     // before var a and before print(3)
     position1 = { "lineNumber": 2, "column": 4 };
     position2 = { "lineNumber": 7, "column": 12 };
     deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
-    checkASTPosition(parentNode, "FunctionDeclaration", 1, 0, 12, 1);
+    checkASTPosition(deletableBlock, "FunctionDeclaration", 1, 0, 12, 1);
 
     // in print(3) and after break;
     position1 = { "lineNumber": 7, "column": 15 };
     position2 = { "lineNumber": 8, "column": 18 };
     deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
-    checkASTPosition(parentNode, "WhileStatement", 6, 8, 9, 9);
+    checkASTPosition(deletableBlock, "WhileStatement", 6, 8, 9, 9);
 
     // before if opening curly brace and before print(5)
     position1 = { "lineNumber": 3, "column": 16 };
     position2 = { "lineNumber": 4, "column": 8 };
     deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
-    checkASTPosition(parentNode, "IfStatement", 3, 4, 10, 5);
+    checkASTPosition(deletableBlock, "IfStatement", 3, 4, 10, 5);
 
     // before print(5) and in while statement
     position1 = { "lineNumber": 4, "column": 0 };
     position2 = { "lineNumber": 6, "column": 11 };
     deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
-    checkASTPosition(parentNode, "IfStatement", 3, 4, 10, 5);
+    checkASTPosition(deletableBlock, "IfStatement", 3, 4, 10, 5);
 
     // after return a and after print(5)
     position1 = { "lineNumber": 11, "column": 13 };
     position2 = { "lineNumber": 4, "column": 17 };
     deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
-    checkASTPosition(parentNode, "FunctionDeclaration", 1, 0, 12, 1);
+    checkASTPosition(deletableBlock, "FunctionDeclaration", 1, 0, 12, 1);
 
     // before return a; and in return a;
     position1 = { "lineNumber": 11, "column": 4 };
     position2 = { "lineNumber": 11, "column": 10 };
     deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
-    checkASTPosition(parentNode, "ReturnStatement", 11, 4, 11, 13);
+    checkASTPosition(deletableBlock, "ReturnStatement", 11, 4, 11, 13);
 }
 
 testClosestParentNearBraces();

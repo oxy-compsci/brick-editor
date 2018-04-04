@@ -274,7 +274,8 @@ function findClosestCommonDeletableBlock(ast, positions) {
                         node.type === "FunctionDeclaration" ||
                         node.type === "WhileStatement" ||
                         node.type === "ExpressionStatement" ||
-                        node.type === "ReturnStatement")) {
+                        node.type === "ReturnStatement" ||
+                        node.type === "VariableDeclaration")) {
                         if (node.loc.start.line == positions[i]["lineNumber"]) {
                             if (node.loc.start.column <= positions[i]["column"]) {
                                 numNodesCommonParent++;
@@ -521,6 +522,8 @@ try {
         "findClosestCommonParent": findClosestCommonParent,
         "findClosestParent": findClosestParent,
         "findPreviousSibling": findPreviousSibling,
+        "findClosestCommonDeletableBlock": findClosestCommonDeletableBlock,
+        "findClosestDeletableBlock": findClosestDeletableBlock
     };
 } catch (error) {
     if (!(error instanceof ReferenceError)) {

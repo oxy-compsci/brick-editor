@@ -270,6 +270,11 @@ function testFindPreviousSibling() {
     checkASTPosition(prevSibling, "FunctionDeclaration", 1, 0, 9, 1);
 }
 
+/**
+ * Test findClosestCommonParent.
+ *
+ * @returns {undefined}
+ */
 function testFindClosestCommonParent() {
     var ast = recast.parse([
         'function test(a) {',
@@ -336,7 +341,6 @@ function testFindClosestCommonParent() {
     parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
     checkASTPosition(parentNode, "Program", 1, 0, 12, 1);
 } 
-
 
 testClosestParentNearBraces();
 testClosestParentMultipleLines();

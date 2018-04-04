@@ -54,6 +54,28 @@ require(["vs/editor/editor.main"], function () {
         value: jsCode,
         language: "typescript",
         theme: "normal"
+        formatOnType: true,
+        formatOnPaste: true,
+    });
+
+    monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
+        allowNonTsExtensions: true,
+        noLib: true
+    });
+
+    monaco.languages.registerCompletionItemProvider('typescript', {
+        provideCompletionItems: () => {
+            var autocomplete = [];
+            for (var i = 0; i < blockDict.length; i++) {
+                autocomplete[i] = {
+                    label: blockDict[i]["blockName"],
+                    kind: blockDict[i]["kind"],
+                    documentation: blockDict[i]["documentation"],
+                    insertText: blockDict[i]["code"]                
+                }
+            }
+            return autocomplete;
+        }
     });
 
     editor.addCommand(monaco.KeyCode.Backspace, backspaceHandler);

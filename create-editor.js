@@ -44,8 +44,8 @@ require(["vs/editor/editor.main"], function () {
         theme: "customTheme"
     });
 
-    editor.addCommand(monaco.KeyCode.Backspace, backspaceHandler)
-    editor.addCommand(monaco.KeyCode.Delete, deleteHandler)
+    editor.addCommand(monaco.KeyCode.Backspace, backspaceHandler);
+    editor.addCommand(monaco.KeyCode.Delete, deleteHandler);
     
 });
 

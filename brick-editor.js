@@ -35,6 +35,9 @@ function addBlocksHTML() { // eslint-disable-line no-unused-vars
 
 // EVENT HANDLERS
 
+/**
+ * Called when backspace key is pressed
+ */
 function backspaceHandler() {
     // if has selected, delete selected
     var selection = hasSelected();
@@ -75,6 +78,9 @@ function backspaceHandler() {
     }
 }
 
+/**
+ * Called when delete key is pressed
+ */
 function deleteHandler() {
     // if has selected, delete selected
     var selection = hasSelected();
@@ -166,7 +172,12 @@ function setPosition(position) {
     editor.setPosition(position);
 }
 
-
+/**
+ * Get the positions of the selection in the editor
+ * (Offsets the start and end columns by 1 to account for differences in column numbering between Recast and Monaco)
+ *
+ * @returns {Location} An object with start/end lineNumber and start/end column properties
+ */
 function getSelection() {
     var selectionPosition = editor.getSelection();
     selectionPosition.startColumn--;
@@ -174,6 +185,10 @@ function getSelection() {
     return selectionPosition;
 }
 
+/**
+ * Returns position of selection if selection exists
+ * @returns {Location} An object with start/end lineNumber and start/end column properties
+ */
 function hasSelected() {
     var selection = getSelection();
     if (editor.getModel().getValueInRange(selection)) {
@@ -182,6 +197,13 @@ function hasSelected() {
     return null;
 }
 
+/**
+ * Highlights editor text based on start/end lineNumbers and start/end columns
+ * @param {any} startLine
+ * @param {any} startColumn
+ * @param {any} endLine
+ * @param {any} endColumn
+ */
 function highlight(startLine, startColumn, endLine, endColumn) {
     decorations = editor.deltaDecorations([], [
         {
@@ -191,6 +213,9 @@ function highlight(startLine, startColumn, endLine, endColumn) {
     ]);
 }
 
+/**
+ * Removes all decorations and highlighting from the editor
+ */
 function unhighlight() {
     decorations = editor.deltaDecorations(decorations, []);
 }
@@ -200,7 +225,7 @@ function unhighlight() {
 /**
  * Find the closest shared parent between multiple positions.
  *
- * @param {AST} ast - the root of the AST to search through.
+ * @param {AST} ast - The root of the AST to search through.
  * @param {[Location]} positions - List of LineNumber and Column objects.
  * @returns {node} parentNode
  */
@@ -244,7 +269,7 @@ function findClosestCommonParent(ast, positions) {
 /**
  * Find the closest parent node that contains the position.
  *
- * @param {AST} ast - the root of the AST to search through.
+ * @param {AST} ast - The root of the AST to search through.
  * @param {Location} position - A LineNumber and Column object.
  * @returns {node} - The AST node of the parent.
  */
@@ -255,7 +280,7 @@ function findClosestParent(ast, position) {
 /**
  * Find the closest parent node that is able to be deleted.
  *
- * @param {AST} ast - the root of the AST to search through.
+ * @param {AST} ast - The root of the AST to search through.
  * @param {[Location]} positions - List of lineNumber and column objects.
  * @returns {node} 
  */
@@ -305,7 +330,7 @@ function findClosestCommonDeletableBlock(ast, positions) {
 /**
  * Find the closest deletable block that contains the position.
  *
- * @param {AST} ast - the root of the AST to search through.
+ * @param {AST} ast - The root of the AST to search through.
  * @param {Location} position - A lineNumber and column object.
  * @returns {node} 
  */
@@ -316,7 +341,7 @@ function findClosestDeletableBlock(ast, position) {
 /**
  * Find the immediate previous sibling to the position.
  *
- * @param {AST} ast - the root of the AST to search through.
+ * @param {AST} ast - The root of the AST to search through.
  * @param {Location} position - A lineNumber and column object.
  * @returns {node} - The AST node of the sibling.
  */
@@ -340,8 +365,8 @@ function findPreviousSibling(ast, position) {
 
 /**
  * Find whether cursor is at end of block
- * @param {string} buffer - Text in the editor.
- * @param {position}
+ * @param {AST} ast - The root of the ast to search through.
+ * @param {position} - A lineNumber and column object.
  * @returns {boolean}
  */
 function cursorAtEndOfBlock(ast, position) {
@@ -365,9 +390,9 @@ function cursorAtEndOfBlock(ast, position) {
 
 /**
  * Find whether cursor is at beginning of block
- * @param {string} buffer - Text in the editor.
- * @param {position}
- * @returns {boolean}
+ * @param {AST} ast - The root of the ast to search through.
+ * @param {position} - A lineNumber and column object.
+ * @returns {boolean} 
  */
 function cursorAtBegOfBlock(ast, position) {
     var begOfBlock = false;
@@ -392,7 +417,7 @@ function cursorAtBegOfBlock(ast, position) {
 
 /**
  * Delete selected text
- * @param {ast} AST - The parsed text to delete from.
+ * @param {ast} AST - The root of the ast to delete from.
  * @param {[Position]} selectionPosition - Start line and column, end line and column of selection
  * @returns {string} buffer
  */
@@ -410,7 +435,7 @@ function deleteSelected(ast, selectionPosition) {
 
 /**
  * Delete a node
- * @param {ast} AST - The parsed text.
+ * @param {AST} ast - The parsed text.
  * @param {node} parentNode - The parent node to delete from.
  * @param {node} prevSibling - The sibling node to reference from.
  * @returns {string} Text with block removed
@@ -428,24 +453,28 @@ function deleteBlock(ast, node) {
 
 /**
  * Backspace a character
- * 
+ * @param {string} buffer - A string of text from the editor.
+ * @param {Location} position - A lineNumber and column object.
+ * @returns {string} Updated buffer text
  */
 function backspaceChar(buffer, position) {
     var beginPosition = { lineNumber: position.lineNumber, column: position.column - 1 };
     var firstPart = getBeforePosition(buffer, beginPosition);
     var lastPart = getAfterPosition(buffer, position);
-    return [firstPart, lastPart].join('');
+    return [firstPart, lastPart].join("");
 }
 
 /**
  * Delete a character
- * 
+ * @param {string} buffer - A string of text from the editor.
+ * @param {Location} position - A lineNumber and column object.
+ * @returns {string} Updated buffer text
  */
 function deleteChar(buffer, position) {
     var endPosition = { lineNumber: position.lineNumber, column: position.column + 1 };
     var firstPart = getBeforePosition(buffer, position);
     var lastPart = getAfterPosition(buffer, endPosition);
-    return [firstPart, lastPart].join('');
+    return [firstPart, lastPart].join("");
 }
   
 // ADDING FUNCTIONS
@@ -488,12 +517,12 @@ function addBlock(template, ast, position) {
 function getBeforePosition(buffer, position) {
     var splitBuffer = buffer.split("\n");
     var firstPart = splitBuffer.slice(0, position.lineNumber - 1);
-    var sameLine = splitBuffer.slice(position.lineNumber - 1, position.lineNumber).join('');
-    sameLine = sameLine.split('');
-    sameLine = sameLine.slice(0, position.column).join('');
+    var sameLine = splitBuffer.slice(position.lineNumber - 1, position.lineNumber).join("");
+    sameLine = sameLine.split("");
+    sameLine = sameLine.slice(0, position.column).join("");
     firstPart.push(sameLine);
 
-    return firstPart.join('\n');
+    return firstPart.join("\n");
 } 
 
 /** 
@@ -506,12 +535,12 @@ function getBeforePosition(buffer, position) {
 function getAfterPosition(buffer, position) {
     var splitBuffer = buffer.split("\n");
     var lastPart = splitBuffer.slice(position.lineNumber);
-    var sameLine = splitBuffer.slice(position.lineNumber - 1, position.lineNumber).join('');
-    sameLine = sameLine.split('');
-    sameLine = sameLine.slice(position.column).join('');
+    var sameLine = splitBuffer.slice(position.lineNumber - 1, position.lineNumber).join("");
+    sameLine = sameLine.split("");
+    sameLine = sameLine.slice(position.column).join("");
     lastPart.unshift(sameLine);
 
-    return lastPart.join('\n');
+    return lastPart.join("\n");
 }
 
 // Attempt to export the module for testing purposes. If we get a

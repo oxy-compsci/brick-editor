@@ -46,37 +46,12 @@ function backspaceHandler() {
     var cursor = getCursor();
     var buffer = editor.getValue();
     var ast = recast.parse(buffer);
-    var node = null;
     if (selection) {
-        node = deleteSelected(ast, selection);
-        highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
-        setTimeout(function () {
-            var response = confirm("Are you sure you wish to delete?");
-            if (response) {
-                editor.setValue(deleteBlock(ast, node));
-            } else {
-                unhighlight();
-            }
-        }, 100);
-    }
-    else {
-        if (cursorAtEndOfBlock(ast, cursor)) {
-            node = findClosestDeletableBlock(ast, cursor);
-            highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
-            setTimeout(function () {
-                var response = confirm("Are you sure you wish to delete?");
-                if (response) {
-                    editor.setValue(deleteBlock(ast, node));
-                } else {
-                    unhighlight();
-                }
-            }, 100);
-        } else {
-            // delete char
-            editor.setValue(backspaceChar(buffer, cursor));
-            cursor.column = cursor.column - 1; // FIXME
-            setCursor(cursor);
-        }
+        selectionBranch(ast, selection);
+    } else if (cursorAtEndOfBlock(ast, cursor)) {
+        blockBranch(ast, cursor);
+    } else {
+        charBackspaceBranch(buffer, cursor);
     }
 }
 
@@ -90,36 +65,12 @@ function deleteHandler() {
     var cursor = getCursor();
     var buffer = editor.getValue();
     var ast = recast.parse(buffer);
-    var node = null;
     if (selection) {
-        node = deleteSelected(ast, selection);
-        highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
-        setTimeout(function () {
-            var response = confirm("Are you sure you wish to delete?");
-            if (response) {
-                editor.setValue(deleteBlock(ast, node));
-            } else {
-                unhighlight();
-            }
-        }, 100);
-    }
-    else {
-        if (cursorAtBegOfBlock(ast, cursor)) {
-            node = findClosestDeletableBlock(ast, cursor);
-            highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
-            setTimeout(function () {
-                var response = confirm("Are you sure you wish to delete?");
-                if (response) {
-                    editor.setValue(deleteBlock(ast, node));
-                } else {
-                    unhighlight();
-                }
-            }, 100);
-        } else {
-            // delete char
-            editor.setValue(deleteChar(buffer, cursor));
-            setCursor(cursor);
-        }
+        selectionBranch(ast, selection);
+    } else if (cursorAtStartOfBlock(ast, cursor)) {
+            blockBranch(ast, cursor);
+    } else {
+        charDeleteBranch(buffer, cursor);
     }
 }
 
@@ -140,9 +91,77 @@ function buttonHandler(i) { // eslint-disable-line no-unused-vars
     editor.setValue(recast.print(ast).code);
 
     // update cursor position
-    // FIXME calculate new cursor
     setCursor(cursor);
 }
+
+/**
+ * Highlights and deletes selection
+ *
+ * The setTimeout() function is necessary to allow highlighting before confirm dialog popup
+ *
+ * @param {AST} ast - The root of the ast to search through.
+ * @param {Location} selection - An object with start/end lineNumber and start/end column properties.
+ * @returns {undefined}
+ */
+function selectionBranch(ast, selection) {
+    var node = deleteSelected(ast, selection);
+    highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
+    setTimeout(function () {
+        var response = confirm("Are you sure you wish to delete?");
+        if (response) {
+            editor.setValue(deleteBlock(ast, node));
+        } else {
+            unhighlight();
+        }
+    }, 100);
+}
+
+/**
+ * Deletes a block
+ *
+ * The setTimeout() function is necessary to allow highlighting before confirm dialog popup
+ *
+ * @param {AST} ast - The root of the ast to search through.
+ * @param {Cursor} cursor - The line and column of the cursor
+ * @returns {undefined}
+ */
+function blockBranch(ast, cursor) {
+    var node = findClosestDeletableBlock(ast, cursor);
+    highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
+    setTimeout(function () {
+        var response = confirm("Are you sure you wish to delete?");
+        if (response) {
+            editor.setValue(deleteBlock(ast, node));
+        } else {
+            unhighlight();
+        }
+    }, 100);
+}
+
+/**
+ * Backspace a character
+ * @param {string} buffer - A string of text from the editor.
+ * @param {Cursor} cursor - The line and column of the cursor
+ * @returns {undefined}
+ */
+function charBackspaceBranch(buffer, cursor) {
+    editor.setValue(backspaceChar(buffer, cursor));
+    cursor.column = cursor.column - 1; // FIXME
+    setCursor(cursor);
+}
+
+/**
+ * Delete a character
+ * @param {string} buffer - A string of text from the editor.
+ * @param {Cursor} cursor - The line and column of the cursor
+ * @returns {undefined}
+ */
+function charDeleteBranch(buffer, cursor) {
+    editor.setValue(deleteChar(buffer, cursor));
+    setCursor(cursor);
+}
+
+
 
 // EDITOR INTERFACE CODE
 
@@ -158,7 +177,7 @@ function makeCursor(line, col) {
 }
 
 /**
- * Get the cursor cursor in the editor.
+ * Get the cursor in the editor.
  *
  * Note monaco line number starts at 0, while recast line number starts at 1.
  * The result of this function, and all functions here, follow the recast
@@ -173,7 +192,7 @@ function getCursor() {
 }
 
 /**
- * Get the cursor cursor in the editor.
+ * Get the cursor in the editor.
  *
  * Note monaco line number starts at 0, while recast line number starts at 1.
  * The input of this function follows the recast numbering.
@@ -207,16 +226,17 @@ function hasSelected() {
     var selection = getSelection();
     if (editor.getModel().getValueInRange(selection)) {
         return selection;
+    } else {
+        return null;
     }
-    return null;
 }
 
 /**
  * Highlights editor text based on start/end lineNumbers and start/end columns
- * @param {any} startLine - LineNumber where range will start
- * @param {any} startColumn - Column where range will start
- * @param {any} endLine - LineNumber where range will end
- * @param {any} endColumn - Column where range will end
+ * @param {int} startLine - LineNumber where range will start
+ * @param {int} startColumn - Column where range will start
+ * @param {int} endLine - LineNumber where range will end
+ * @param {int} endColumn - Column where range will end
  * @returns {undefined}
  */
 function highlight(startLine, startColumn, endLine, endColumn) {
@@ -256,11 +276,11 @@ function findClosestCommonParent(ast, cursors) {
                 }
                 if (node.loc.start.line <= cursors[i].lineNumber && node.loc.end.line >= cursors[i].lineNumber) {
                     if ((node.type === "BlockStatement" || node.type === "Program")) {
-                        if (node.loc.start.line == cursors[i].lineNumber) {
+                        if (node.loc.start.line === cursors[i].lineNumber) {
                             if (node.loc.start.column <= cursors[i].column) {
                                 numNodesCommonParent++;
                             }
-                        } else if (node.loc.end.line == cursors[i].lineNumber) {
+                        } else if (node.loc.end.line === cursors[i].lineNumber) {
                             if (node.loc.end.column > cursors[i].column) {
                                 numNodesCommonParent++;
                             }
@@ -270,13 +290,13 @@ function findClosestCommonParent(ast, cursors) {
                     }
                 }
             }
-            if (numNodesCommonParent == cursors.length) {
+            if (numNodesCommonParent === cursors.length) {
                 parentNode = node;
             }
         }
     });
     // if no parentNode found, then cursor is after last character and parentNode = "Program"
-    if (parentNode == null) {
+    if (parentNode === null) {
         parentNode = ast.program;
     }
     return parentNode;
@@ -317,11 +337,11 @@ function findClosestCommonDeletableBlock(ast, cursors) {
                         node.type === "ExpressionStatement" ||
                         node.type === "ReturnStatement" ||
                         node.type === "VariableDeclaration")) {
-                        if (node.loc.start.line == cursors[i].lineNumber) {
+                        if (node.loc.start.line === cursors[i].lineNumber) {
                             if (node.loc.start.column <= cursors[i].column) {
                                 numNodesCommonParent++;
                             }
-                        } else if (node.loc.end.line == cursors[i].lineNumber) {
+                        } else if (node.loc.end.line === cursors[i].lineNumber) {
                             if (node.loc.end.column >= cursors[i].column) {
                                 numNodesCommonParent++;
                             }
@@ -331,13 +351,13 @@ function findClosestCommonDeletableBlock(ast, cursors) {
                     }
                 }
             }
-            if (numNodesCommonParent == cursors.length) {
+            if (numNodesCommonParent === cursors.length) {
                 deleteNode = node;
             }
         }
     });
     // if no parentNode found, then position is after last character and parentNode = "Program"
-    if (deleteNode == null) {
+    if (deleteNode === null) {
         deleteNode = ast.program;
     }
     return deleteNode;
@@ -372,7 +392,7 @@ function findPreviousSibling(ast, cursor) {
         if (node.loc.end.line < cursor.lineNumber) {
             prevSibling = node;
             // if node is same line as cursor
-        } else if (node.loc.end.line == cursor.lineNumber) {
+        } else if (node.loc.end.line === cursor.lineNumber) {
             // check if node ends before or at cursor
             if (node.loc.end.column <= cursor.column) {
                 prevSibling = node;
@@ -388,7 +408,7 @@ function findPreviousSibling(ast, cursor) {
 /**
  * Find whether cursor is at end of block
  * @param {AST} ast - The root of the ast to search through.
- * @param {Location} - A lineNumber and column object.
+ * @param {Cursor} cursor - A lineNumber and column object.
  * @returns {boolean} Is cursor at end of block?
  */
 function cursorAtEndOfBlock(ast, cursor) {
@@ -402,7 +422,7 @@ function cursorAtEndOfBlock(ast, cursor) {
                 node.type === "VariableDeclaration" ||
                 node.type === "ExpressionStatement" ||
                 node.type === "ReturnStatement") &&
-                cursor.lineNumber == node.loc.end.line && cursor.column == node.loc.end.column) {
+                cursor.lineNumber === node.loc.end.line && cursor.column === node.loc.end.column) {
                 endOfBlock = true;
             }
         }
@@ -413,10 +433,10 @@ function cursorAtEndOfBlock(ast, cursor) {
 /**
  * Find whether cursor is at beginning of block
  * @param {AST} ast - The root of the ast to search through.
- * @param {Location} - A lineNumber and column object.
+ * @param {Cursor} cursor - A lineNumber and column object.
  * @returns {boolean} Is cursor at beginning of block?
  */
-function cursorAtBegOfBlock(ast, cursor) {
+function cursorAtStartOfBlock(ast, cursor) {
     var begOfBlock = false;
     estraverse.traverse(ast.program, {
         enter: function (node) {
@@ -427,7 +447,7 @@ function cursorAtBegOfBlock(ast, cursor) {
                 node.type === "VariableDeclaration" ||
                 node.type === "ExpressionStatement" ||
                 node.type === "ReturnStatement") &&
-                cursor.lineNumber == node.loc.start.line && cursor.column == node.loc.start.column) {
+                cursor.lineNumber === node.loc.start.line && cursor.column === node.loc.start.column) {
                 begOfBlock = true;
             }
         }
@@ -440,24 +460,24 @@ function cursorAtBegOfBlock(ast, cursor) {
 /**
  * Delete selected text
  * @param {AST} ast - The root of the ast to delete from.
- * @param {[Position]} selectionPosition - Start line and column, end line and column of selection
+ * @param {[Location]} selectionPosition - Start line and column, end line and column of selection
  * @returns {string} buffer
  */
 function deleteSelected(ast, selectionPosition) {
-    var startPosition = { "lineNumber": selectionPosition.startLineNumber, "column": selectionPosition.startColumn };
-    var endPosition = { "lineNumber": selectionPosition.endLineNumber, "column": selectionPosition.endColumn };
+    var startCursor = makeCursor(selectionPosition.startLineNumber, selectionPosition.startColumn);
+    var endCursor = makeCursor(selectionPosition.endLineNumber, selectionPosition.endColumn);
     var node = null;
-    if (findClosestDeletableBlock(ast, startPosition) === findClosestDeletableBlock(ast, endPosition)) {
-        node = findClosestDeletableBlock(ast, startPosition);
+    if (findClosestDeletableBlock(ast, startCursor) === findClosestDeletableBlock(ast, endCursor)) {
+        node = findClosestDeletableBlock(ast, startCursor);
     } else {
-        node = findClosestCommonDeletableBlock(ast, [startPosition, endPosition]);
+        node = findClosestCommonDeletableBlock(ast, [startCursor, endCursor]);
     }
     return node;
 }
 
 /**
  * Delete a node
- * @param {ast} AST - The parsed text.
+ * @param {AST} ast - The parsed text.
  * @param {node} node - The node to delete.
  * @returns {string} Text with block removed
  */
@@ -476,13 +496,13 @@ function deleteBlock(ast, node) {
  * Backspace a character
  *
  * @param {string} buffer - A string of text from the editor.
- * @param {Location} position - A lineNumber and column object.
+ * @param {Cursor} cursor - A lineNumber and column object.
  * @returns {string} Updated buffer text
  */
 function backspaceChar(buffer, cursor) {
     var beginPosition = { lineNumber: cursor.lineNumber, column: cursor.column - 1 };
-    var firstPart = getBeforePosition(buffer, beginPosition);
-    var lastPart = getAfterPosition(buffer, cursor);
+    var firstPart = getBeforeCursor(buffer, beginPosition);
+    var lastPart = getAfterCursor(buffer, cursor);
     return [firstPart, lastPart].join("");
 }
 
@@ -490,13 +510,13 @@ function backspaceChar(buffer, cursor) {
  * Delete a character
  *
  * @param {string} buffer - A string of text from the editor.
- * @param {Location} position - A lineNumber and column object.
+ * @param {Cursor} cursor - A lineNumber and column object.
  * @returns {string} Updated buffer text
  */
 function deleteChar(buffer, cursor) {
     var endPosition = { lineNumber: cursor.lineNumber, column: cursor.column + 1 };
-    var firstPart = getBeforePosition(buffer, cursor);
-    var lastPart = getAfterPosition(buffer, endPosition);
+    var firstPart = getBeforeCursor(buffer, cursor);
+    var lastPart = getAfterCursor(buffer, endPosition);
     return [firstPart, lastPart].join("");
 }
 
@@ -537,7 +557,7 @@ function addBlock(template, ast, cursor) {
  * @param {Cursor} cursor - A lineNumber and column object.
  * @returns {string} A string of text before cursor position.
  */
-function getBeforePosition(buffer, cursor) {
+function getBeforeCursor(buffer, cursor) {
     var splitBuffer = buffer.split("\n");
     var firstPart = splitBuffer.slice(0, cursor.lineNumber - 1);
     var sameLine = splitBuffer.slice(cursor.lineNumber - 1, cursor.lineNumber).join("");
@@ -555,7 +575,7 @@ function getBeforePosition(buffer, cursor) {
  * @param {Cursor} cursor - A lineNumber and column object.
  * @returns {string} A string of text after cursor cursor.
  */
-function getAfterPosition(buffer, cursor) {
+function getAfterCursor(buffer, cursor) {
     var splitBuffer = buffer.split("\n");
     var lastPart = splitBuffer.slice(cursor.lineNumber);
     var sameLine = splitBuffer.slice(cursor.lineNumber - 1, cursor.lineNumber).join("");

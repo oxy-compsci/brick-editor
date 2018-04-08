@@ -1,4 +1,4 @@
-/* global require, monaco */
+/* global require, monaco, deleteHandler, backspaceHandler */
 
 // global variable for the editor
 var editor = null; // eslint-disable-line no-unused-vars

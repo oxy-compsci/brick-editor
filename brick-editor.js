@@ -1,4 +1,4 @@
-/* global require, module, editor, blockDict, monaco*/
+/* global require, module, editor, blockDict, monaco */
 
 // NODE IMPORTS
 
@@ -40,7 +40,7 @@ function addBlocksHTML() { // eslint-disable-line no-unused-vars
  * Called when backspace key is pressed
  * @returns {undefined}
  */
-function backspaceHandler() {
+function backspaceHandler() { // eslint-disable-line no-unused-vars
     // if has selected, delete selected
     var selection = hasSelected();
     var cursor = getCursor();
@@ -59,7 +59,7 @@ function backspaceHandler() {
  * Called when delete key is pressed
  * @returns {undefined}
  */
-function deleteHandler() {
+function deleteHandler() { // eslint-disable-line no-unused-vars
     // if has selected, delete selected
     var selection = hasSelected();
     var cursor = getCursor();
@@ -68,7 +68,7 @@ function deleteHandler() {
     if (selection) {
         selectionBranch(ast, selection);
     } else if (cursorAtStartOfBlock(ast, cursor)) {
-            blockBranch(ast, cursor);
+        blockBranch(ast, cursor);
     } else {
         charDeleteBranch(buffer, cursor);
     }

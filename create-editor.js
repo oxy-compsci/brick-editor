@@ -1,4 +1,4 @@
-/* global require, monaco */
+/* global require, monaco, deleteHandler, backspaceHandler */
 
 // global variable for the editor
 var editor = null; // eslint-disable-line no-unused-vars
@@ -43,4 +43,10 @@ require(["vs/editor/editor.main"], function () {
         language: "typescript",
         theme: "customTheme"
     });
+
+    editor.addCommand(monaco.KeyCode.Backspace, backspaceHandler);
+    editor.addCommand(monaco.KeyCode.Delete, deleteHandler);
+    
 });
+
+

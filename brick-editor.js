@@ -165,7 +165,52 @@ function charDeleteBranch(buffer, cursor) {
     setCursor(cursor);
 }
 
+// EDITING HANDLERS
 
+/**
+ * Handler for any text on a cursor.
+ *
+ * @returns {undefined}
+ */
+function onPointInsert() {
+
+}
+
+/**
+ * Handler for backspace on a cursor.
+ *
+ * @returns {undefined}
+ */
+function onPointBackspace() {
+
+}
+
+/**
+ * Handler for delete on a cursor.
+ *
+ * @returns {undefined}
+ */
+function onPointDelete() {
+
+}
+
+/**
+ * Handler for any text on a selection.
+ *
+ * @returns {undefined}
+ */
+function onRangeReplace() {
+
+}
+
+/**
+ * Handler for any deletion of a selection.
+ *
+ * @returns {undefined}
+ */
+function onRangeDelete() {
+
+}
 
 // EDITOR INTERFACE CODE
 

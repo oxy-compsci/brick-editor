@@ -46,7 +46,7 @@ function backspaceHandler() { // eslint-disable-line no-unused-vars
     var selection = hasSelected();
     var cursor = getCursor();
     var buffer = editor.getValue();
-    var ast = recast.parse(buffer);
+    var ast = attemptParse(buffer);
     if (selection) {
         selectionBranch(ast, selection);
     } else if (cursorAtEndOfBlock(ast, cursor)) {
@@ -66,7 +66,7 @@ function deleteHandler() { // eslint-disable-line no-unused-vars
     var selection = hasSelected();
     var cursor = getCursor();
     var buffer = editor.getValue();
-    var ast = recast.parse(buffer);
+    var ast = attemptParse(buffer);
     if (selection) {
         selectionBranch(ast, selection);
     } else if (cursorAtStartOfBlock(ast, cursor)) {
@@ -84,12 +84,12 @@ function deleteHandler() { // eslint-disable-line no-unused-vars
  */
 function buttonHandler(i) { // eslint-disable-line no-unused-vars
     var template = blockDict[i].code;
-    var ast = recast.parse(editor.getValue());
+    var ast = attemptParse(editor.getValue());
     var cursor = getCursor();
 
     // add block to buffer string and update editor
     var new_text = addBlock(template, ast, cursor);
-    ast = recast.parse(new_text);
+    ast = attemptParse(new_text);
     editor.setValue(recast.print(ast).code);
 
     // update cursor position
@@ -551,7 +551,7 @@ function addBlock(template, ast, cursor) {
         parentNode = findClosestParent(ast, cursor);
     }
     // parse template
-    var parsedTemplate = recast.parse(template);
+    var parsedTemplate = attemptParse(template);
     // parentNode should be pointer, so just append
     var index = parentNode.body.indexOf(prevSibling);
     parentNode.body.splice(index + 1, 0, parsedTemplate.program.body[0]);
@@ -595,6 +595,20 @@ function getAfterCursor(buffer, cursor) {
     lastPart.unshift(sameLine);
 
     return lastPart.join("\n");
+}
+
+/**
+ * Attempt to parse JavaScript code.
+ *
+ * @param {string} text - The text to parse.
+ * @returns {AST} - The parsed AST, or null if unparsable.
+ */
+function attemptParse(text) {
+    try {
+        return recast.parse(text);
+    } catch (e) {
+        return null;
+    }
 }
 
 // Attempt to export the module for testing purposes. If we get a

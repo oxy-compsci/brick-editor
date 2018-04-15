@@ -42,17 +42,10 @@ function addBlocksHTML() { // eslint-disable-line no-unused-vars
  * @returns {undefined}
  */
 function backspaceHandler() { // eslint-disable-line no-unused-vars
-    // if has selected, delete selected
-    var selection = hasSelected();
-    var cursor = getCursor();
-    var buffer = editor.getValue();
-    var ast = attemptParse(buffer);
-    if (selection) {
-        selectionBranch(ast, selection);
-    } else if (cursorAtEndOfBlock(ast, cursor)) {
-        blockBranch(ast, cursor);
+    if (hasSelected()) {
+        onRangeDelete();
     } else {
-        charBackspaceBranch(buffer, cursor);
+        onPointBackspace();
     }
 }
 
@@ -62,17 +55,10 @@ function backspaceHandler() { // eslint-disable-line no-unused-vars
  * @returns {undefined}
  */
 function deleteHandler() { // eslint-disable-line no-unused-vars
-    // if has selected, delete selected
-    var selection = hasSelected();
-    var cursor = getCursor();
-    var buffer = editor.getValue();
-    var ast = attemptParse(buffer);
-    if (selection) {
-        selectionBranch(ast, selection);
-    } else if (cursorAtStartOfBlock(ast, cursor)) {
-        blockBranch(ast, cursor);
+    if (hasSelected()) {
+        onRangeDelete();
     } else {
-        charDeleteBranch(buffer, cursor);
+        onPointDelete();
     }
 }
 
@@ -182,6 +168,14 @@ function onPointInsert() {
  * @returns {undefined}
  */
 function onPointBackspace() {
+    var cursor = getCursor();
+    var buffer = editor.getValue();
+    var ast = attemptParse(buffer);
+    if (cursorAtEndOfBlock(ast, cursor)) {
+        blockBranch(ast, cursor);
+    } else {
+        charBackspaceBranch(buffer, cursor);
+    }
 
 }
 
@@ -191,7 +185,15 @@ function onPointBackspace() {
  * @returns {undefined}
  */
 function onPointDelete() {
-
+    // if has selected, delete selected
+    var cursor = getCursor();
+    var buffer = editor.getValue();
+    var ast = attemptParse(buffer);
+    if (cursorAtStartOfBlock(ast, cursor)) {
+        blockBranch(ast, cursor);
+    } else {
+        charDeleteBranch(buffer, cursor);
+    }
 }
 
 /**
@@ -209,7 +211,9 @@ function onRangeReplace() {
  * @returns {undefined}
  */
 function onRangeDelete() {
-
+    var selection = hasSelected();
+    var ast = attemptParse(editor.getValue());
+    selectionBranch(ast, selection);
 }
 
 // EDITOR INTERFACE CODE

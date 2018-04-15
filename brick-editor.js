@@ -38,6 +38,7 @@ function addBlocksHTML() { // eslint-disable-line no-unused-vars
 
 /**
  * Called when backspace key is pressed
+ *
  * @returns {undefined}
  */
 function backspaceHandler() { // eslint-disable-line no-unused-vars
@@ -57,6 +58,7 @@ function backspaceHandler() { // eslint-disable-line no-unused-vars
 
 /**
  * Called when delete key is pressed
+ *
  * @returns {undefined}
  */
 function deleteHandler() { // eslint-disable-line no-unused-vars
@@ -140,6 +142,7 @@ function blockBranch(ast, cursor) {
 
 /**
  * Backspace a character
+ *
  * @param {string} buffer - A string of text from the editor.
  * @param {Cursor} cursor - The line and column of the cursor
  * @returns {undefined}
@@ -152,6 +155,7 @@ function charBackspaceBranch(buffer, cursor) {
 
 /**
  * Delete a character
+ *
  * @param {string} buffer - A string of text from the editor.
  * @param {Cursor} cursor - The line and column of the cursor
  * @returns {undefined}
@@ -220,6 +224,7 @@ function getSelection() {
 
 /**
  * Returns position of selection if selection exists
+ *
  * @returns {Location} An object with start/end lineNumber and start/end column properties
  */
 function hasSelected() {
@@ -233,6 +238,7 @@ function hasSelected() {
 
 /**
  * Highlights editor text based on start/end lineNumbers and start/end columns
+ *
  * @param {int} startLine - LineNumber where range will start
  * @param {int} startColumn - Column where range will start
  * @param {int} endLine - LineNumber where range will end
@@ -250,6 +256,7 @@ function highlight(startLine, startColumn, endLine, endColumn) {
 
 /**
  * Removes all decorations and highlighting from the editor
+ *
  * @returns {undefined}
  */
 function unhighlight() {
@@ -407,6 +414,7 @@ function findPreviousSibling(ast, cursor) {
 
 /**
  * Find whether cursor is at end of block
+ *
  * @param {AST} ast - The root of the ast to search through.
  * @param {Cursor} cursor - A lineNumber and column object.
  * @returns {boolean} Is cursor at end of block?
@@ -432,6 +440,7 @@ function cursorAtEndOfBlock(ast, cursor) {
 
 /**
  * Find whether cursor is at beginning of block
+ *
  * @param {AST} ast - The root of the ast to search through.
  * @param {Cursor} cursor - A lineNumber and column object.
  * @returns {boolean} Is cursor at beginning of block?
@@ -459,6 +468,7 @@ function cursorAtStartOfBlock(ast, cursor) {
 
 /**
  * Delete selected text
+ *
  * @param {AST} ast - The root of the ast to delete from.
  * @param {[Location]} selectionPosition - Start line and column, end line and column of selection
  * @returns {string} buffer
@@ -477,6 +487,7 @@ function deleteSelected(ast, selectionPosition) {
 
 /**
  * Delete a node
+ *
  * @param {AST} ast - The parsed text.
  * @param {node} node - The node to delete.
  * @returns {string} Text with block removed

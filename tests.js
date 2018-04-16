@@ -2,6 +2,7 @@
 
 var assert = require("assert");
 var recast = require("recast");
+
 var brickEditor = require("./brick-editor.js");
 
 /**
@@ -41,6 +42,233 @@ function checkASTPosition(node, type, start_line, start_col, end_line, end_col) 
         assertEqual(node.loc.end.line, end_line, "End line is wrong");
         assertEqual(node.loc.end.column, end_col, "End column is wrong");
     } 
+}
+
+/**
+ * Check if two arrays are the same.
+ *
+ * @param {[any]} actual - The first array.
+ * @param {[any]} expected - The second array.
+ * @returns {boolean} - true if the arrays are equal
+ */
+function assertArraysEqual(actual, expected) {
+    assert(
+        actual.length === expected.length,
+        "Arrays have different lengths; expected " + expected.length + " but got " + actual.length
+    );
+    for (var i = 0; i < actual.length; i++) {
+        assert(
+            actual[i] === expected[i],
+            [
+                "Arrays are different at index " + i + "; expected:",
+                expected[i],
+                "but got:",
+                actual[i],
+            ].join("\n"),
+        );
+    }
+}
+
+/**
+ * Test splitAtCursors.
+ *
+ * @returns {undefined}
+ */
+function testSplitAtCursors() {
+    var text = [
+        "1234567890",
+        "1234567890",
+        "",
+        "1234567890",
+        "1234567890",
+    ].join("\n");
+    var cursors = null;
+    var sections = null;
+    var expected = null;
+
+
+    // edge cases
+
+    cursors = [brickEditor.makeCursor(1, 0)];
+    sections = brickEditor.splitAtCursors(text, cursors);
+    expected = ["", text];
+    assertArraysEqual(sections, expected);
+
+    cursors = [brickEditor.makeCursor(5, 10)];
+    sections = brickEditor.splitAtCursors(text, cursors);
+    expected = [text, ""];
+    assertArraysEqual(sections, expected);
+
+    // non-empty lines
+
+    cursors = [brickEditor.makeCursor(1, 5)];
+    sections = brickEditor.splitAtCursors(text, cursors);
+    expected = [
+        [
+            "12345",
+        ].join("\n"), [
+            "67890",
+            "1234567890",
+            "",
+            "1234567890",
+            "1234567890",
+        ].join("\n"),
+    ]
+    assertArraysEqual(sections, expected);
+
+    cursors = [brickEditor.makeCursor(5, 9)];
+    sections = brickEditor.splitAtCursors(text, cursors);
+    expected = [
+        [
+            "1234567890",
+            "1234567890",
+            "",
+            "1234567890",
+            "123456789",
+        ].join("\n"), [
+            "0",
+        ].join("\n"),
+    ]
+    assertArraysEqual(sections, expected);
+
+    // line boundaries
+
+    cursors = [brickEditor.makeCursor(2, 10)];
+    sections = brickEditor.splitAtCursors(text, cursors);
+    expected = [
+        [
+            "1234567890",
+            "1234567890",
+        ].join("\n"), [
+            "",
+            "",
+            "1234567890",
+            "1234567890",
+        ].join("\n"),
+    ]
+    assertArraysEqual(sections, expected);
+
+    cursors = [brickEditor.makeCursor(3, 0)];
+    sections = brickEditor.splitAtCursors(text, cursors);
+    expected = [
+        [
+            "1234567890",
+            "1234567890",
+            "",
+        ].join("\n"), [
+            "",
+            "1234567890",
+            "1234567890",
+        ].join("\n"),
+    ]
+    assertArraysEqual(sections, expected);
+
+    cursors = [brickEditor.makeCursor(4, 0)];
+    sections = brickEditor.splitAtCursors(text, cursors);
+    expected = [
+        [
+            "1234567890",
+            "1234567890",
+            "",
+            "",
+        ].join("\n"), [
+            "1234567890",
+            "1234567890",
+        ].join("\n"),
+    ]
+    assertArraysEqual(sections, expected);
+
+    // out of line bounds
+
+    cursors = [brickEditor.makeCursor(2, 11)];
+    sections = brickEditor.splitAtCursors(text, cursors);
+    expected = [
+        [
+            "1234567890",
+            "1234567890",
+            "",
+        ].join("\n"), [
+            "",
+            "1234567890",
+            "1234567890",
+        ].join("\n"),
+    ]
+    assertArraysEqual(sections, expected);
+
+    cursors = [brickEditor.makeCursor(1, 16)];
+    sections = brickEditor.splitAtCursors(text, cursors);
+    expected = [
+        [
+            "1234567890",
+            "12345",
+        ].join("\n"), [
+            "67890",
+            "",
+            "1234567890",
+            "1234567890",
+        ].join("\n"),
+    ]
+    assertArraysEqual(sections, expected);
+
+    cursors = [brickEditor.makeCursor(2, 17)];
+    sections = brickEditor.splitAtCursors(text, cursors);
+    expected = [
+        [
+            "1234567890",
+            "1234567890",
+            "",
+            "12345",
+        ].join("\n"), [
+            "67890",
+            "1234567890",
+        ].join("\n"),
+    ]
+    assertArraysEqual(sections, expected);
+
+    // out of string bounds
+
+    cursors = [brickEditor.makeCursor(5, 11)];
+    sections = brickEditor.splitAtCursors(text, cursors);
+    expected = [text, ""];
+    assertArraysEqual(sections, expected);
+
+    cursors = [brickEditor.makeCursor(10, 10)];
+    sections = brickEditor.splitAtCursors(text, cursors);
+    expected = [text, ""];
+    assertArraysEqual(sections, expected);
+
+    // multiple cursors
+
+    cursors = [brickEditor.makeCursor(1, 0), brickEditor.makeCursor(5, 10)];
+    sections = brickEditor.splitAtCursors(text, cursors);
+    expected = ["", text, ""];
+    assertArraysEqual(sections, expected);
+
+    cursors = [
+        brickEditor.makeCursor(1, 5),
+        brickEditor.makeCursor(2, 5),
+        brickEditor.makeCursor(4, 5),
+        brickEditor.makeCursor(5, 5)
+    ];
+    sections = brickEditor.splitAtCursors(text, cursors);
+    expected = [
+        [
+            "12345"
+        ].join("\n"), [
+            "67890",
+            "12345",
+        ].join("\n"), [
+            "67890",
+            "",
+            "12345",
+        ].join("\n"), [
+            "67890",
+            "12345",
+        ].join("\n"), [
+            "67890",
+        ].join("\n"),
+    ]
+    assertArraysEqual(sections, expected);
 }
 
 /**
@@ -470,6 +698,7 @@ function testFindClosestCommonDeletableBlock() {
     checkASTPosition(deletableBlock, "ReturnStatement", 11, 4, 11, 13);
 }
 
+testSplitAtCursors();
 testClosestParentNearBraces();
 testClosestParentMultipleLines();
 testClosestParentNested();

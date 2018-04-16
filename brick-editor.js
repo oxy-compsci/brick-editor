@@ -560,10 +560,9 @@ function deleteBlock(ast, node) {
  * @returns {string} Updated buffer text
  */
 function backspaceChar(buffer, cursor) {
-    var beginPosition = { lineNumber: cursor.lineNumber, column: cursor.column - 1 };
-    var firstPart = getBeforeCursor(buffer, beginPosition);
-    var lastPart = getAfterCursor(buffer, cursor);
-    return [firstPart, lastPart].join("");
+    var beginCursor = makeCursor(cursor.lineNumber, cursor.column - 1);
+    var sections = splitAtCursors(buffer, [beginCursor, cursor]);
+    return [sections[0], sections[2]].join("");
 }
 
 /**
@@ -574,10 +573,9 @@ function backspaceChar(buffer, cursor) {
  * @returns {string} Updated buffer text
  */
 function deleteChar(buffer, cursor) {
-    var endPosition = { lineNumber: cursor.lineNumber, column: cursor.column + 1 };
-    var firstPart = getBeforeCursor(buffer, cursor);
-    var lastPart = getAfterCursor(buffer, endPosition);
-    return [firstPart, lastPart].join("");
+    var endCursor = makeCursor(cursor.lineNumber, cursor.column + 1);
+    var sections = splitAtCursors(buffer, [cursor, endCursor]);
+    return [sections[0], sections[2]].join("");
 }
 
 // ADDING FUNCTIONS
@@ -611,39 +609,48 @@ function addBlock(template, ast, cursor) {
 // BUFFER MANIPULATION FUNCTIONS
 
 /**
- * Return a string containing characters before cursor position
- *
+ * Split a string into sections delimited by Cursors.
+ * 
  * @param {string} buffer - A string of text from the editor.
- * @param {Cursor} cursor - A lineNumber and column object.
- * @returns {string} A string of text before cursor position.
+ * @param {[Cursor]} cursors - Non-empty list of cursors.
+ * @returns {[string]} - List of sections of the original string.
  */
-function getBeforeCursor(buffer, cursor) {
-    var splitBuffer = buffer.split("\n");
-    var firstPart = splitBuffer.slice(0, cursor.lineNumber - 1);
-    var sameLine = splitBuffer.slice(cursor.lineNumber - 1, cursor.lineNumber).join("");
-    sameLine = sameLine.split("");
-    sameLine = sameLine.slice(0, cursor.column).join("");
-    firstPart.push(sameLine);
-
-    return firstPart.join("\n");
-}
-
-/**
- * Return a string containing characters after cursor position
- *
- * @param {string} buffer - A string of text from the editor.
- * @param {Cursor} cursor - A lineNumber and column object.
- * @returns {string} A string of text after cursor cursor.
- */
-function getAfterCursor(buffer, cursor) {
-    var splitBuffer = buffer.split("\n");
-    var lastPart = splitBuffer.slice(cursor.lineNumber);
-    var sameLine = splitBuffer.slice(cursor.lineNumber - 1, cursor.lineNumber).join("");
-    sameLine = sameLine.split("");
-    sameLine = sameLine.slice(cursor.column).join("");
-    lastPart.unshift(sameLine);
-
-    return lastPart.join("\n");
+function splitAtCursors(buffer, cursors) {
+    var positions = [];
+    var cursors_index = 0;
+    // augment positions with a fake cursor at the start
+    positions.push(0);
+    // deal with cursors before the start of the string
+    while (cursors[cursors_index].lineNumber < 1) {
+        positions.push(0);
+        cursors_index++;
+    }
+    // convert all cursors to character positions
+    var lines = buffer.split("\n");
+    var line_num = 0;
+    var num_characters = 0;
+    for (; cursors_index < cursors.length; cursors_index++) {
+        var cursor = cursors[cursors_index];
+        // add non-cursor lines to the current section
+        while (line_num < lines.length && line_num + 1 < cursor.lineNumber) {
+            num_characters += lines[line_num].length + 1;
+            line_num++;
+        }
+        // add the cursor position to the list
+        if (num_characters + cursor.column < buffer.length) {
+            positions.push(num_characters + cursor.column);
+        } else {
+            positions.push(buffer.length);
+        }
+    }
+    // augment positions with a fake cursor at the end
+    positions.push(buffer.length);
+    // loop over them to get sections
+    var sections = [];
+    for (var i = 0; i < positions.length - 1; i++) {
+        sections.push(buffer.substring(positions[i], positions[i + 1]));
+    }
+    return sections;
 }
 
 /**
@@ -666,6 +673,7 @@ function attemptParse(text) {
 try {
     module.exports = {
         "makeCursor": makeCursor,
+        "splitAtCursors": splitAtCursors,
         "findClosestCommonParent": findClosestCommonParent,
         "findClosestParent": findClosestParent,
         "findPreviousSibling": findPreviousSibling,

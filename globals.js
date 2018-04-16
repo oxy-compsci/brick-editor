@@ -15,4 +15,6 @@ var editorState = {
     hasSelected: null,
     // the position of the cursor/selection at the last parsable point
     cursor: null,
+    // the sections of text delimited by the cursor/selection at the last parsable point
+    sections: [],
 };

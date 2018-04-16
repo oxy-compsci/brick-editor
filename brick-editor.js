@@ -670,6 +670,24 @@ function splitAtCursors(buffer, cursors) {
  * @returns {undefined}
  */
 function onDidChangeCursorSelection(e) { // eslint-disable-line no-unused-vars
+
+    /*
+    console.log("ondidchangecursorselection");
+    console.log("    source:", e.source);
+    console.log("    reason:", e.reason);
+    var selection = e.selection;
+    console.log("    [" +
+        selection.startLineNumber
+        + ":" + 
+        selection.startColumn
+        + ", " + 
+        selection.endLineNumber
+        + ":" + 
+        selection.endColumn
+        + "]"
+    );
+    */
+
     if (e.source === "mouse") {
         updateEditorState();
     } else if (e.source === "keyboard") {
@@ -727,10 +745,12 @@ function updateEditorState() {
             editorState.hasSelected = true;
             editorState.cursor = selected;
             editorState.sections = splitAtCursors(buffer, selected);
+            console.log(editorState.cursor[0], editorState.cursor[1]); // eslint-disable-line no-console
         } else {
             editorState.hasSelected = false;
             editorState.cursor = getCursor();
             editorState.sections = splitAtCursors(buffer, [editorState.cursor]);
+            console.log(editorState.cursor); // eslint-disable-line no-console
         }
     } else {
         editorState.parsable = false;

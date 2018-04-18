@@ -5,6 +5,7 @@
 var recast = require("recast");
 var estraverse = require("estraverse");
 var decorations = null;
+var highlighted = false;
 
 // USER INTERFACE CODE
 
@@ -72,11 +73,12 @@ function buttonHandler(i) { // eslint-disable-line no-unused-vars
     var template = blockDict[i].code;
     var ast = attemptParse(editor.getValue());
     var cursor = getCursor();
+    var buffer = editor.getValue();
 
     // add block to buffer string and update editor
     var new_text = addBlock(template, ast, cursor);
     ast = attemptParse(new_text);
-    editor.setValue(recast.print(ast).code);
+    setValue(buffer, recast.print(ast).code);
 
     // update cursor position
     setCursor(cursor);
@@ -87,21 +89,19 @@ function buttonHandler(i) { // eslint-disable-line no-unused-vars
  *
  * The setTimeout() function is necessary to allow highlighting before confirm dialog popup
  *
+ * @param {string} buffer - The current editor text.
  * @param {AST} ast - The root of the ast to search through.
  * @param {Location} selection - An object with start/end lineNumber and start/end column properties.
  * @returns {undefined}
  */
-function selectionBranch(ast, selection) {
+function selectionBranch(buffer, ast, selection) {
     var node = deleteSelected(ast, selection);
-    highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
-    setTimeout(function () {
-        var response = confirm("Are you sure you wish to delete?");
-        if (response) {
-            editor.setValue(deleteBlock(ast, node));
-        } else {
-            unhighlight();
-        }
-    }, 100);
+    if (highlighted) {
+        setValue(buffer, deleteBlock(ast, node));
+    } else {
+        highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
+        highlighted = true;
+    } 
 }
 
 /**
@@ -109,21 +109,19 @@ function selectionBranch(ast, selection) {
  *
  * The setTimeout() function is necessary to allow highlighting before confirm dialog popup
  *
+ * @param {string} buffer - The current editor text.
  * @param {AST} ast - The root of the ast to search through.
  * @param {Cursor} cursor - The line and column of the cursor
  * @returns {undefined}
  */
-function blockBranch(ast, cursor) {
+function blockBranch(buffer, ast, cursor) {
     var node = findClosestDeletableBlock(ast, cursor);
-    highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
-    setTimeout(function () {
-        var response = confirm("Are you sure you wish to delete?");
-        if (response) {
-            editor.setValue(deleteBlock(ast, node));
-        } else {
-            unhighlight();
-        }
-    }, 100);
+    if (highlighted) {
+        setValue(buffer, deleteBlock(ast, node));
+    } else {
+        highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
+        highlighted = true;
+    } 
 }
 
 /**
@@ -134,7 +132,7 @@ function blockBranch(ast, cursor) {
  * @returns {undefined}
  */
 function charBackspaceBranch(buffer, cursor) {
-    editor.setValue(backspaceChar(buffer, cursor));
+    setValue(buffer, backspaceChar(buffer, cursor));
     cursor.column = cursor.column - 1;
     setCursor(cursor);
 }
@@ -147,7 +145,7 @@ function charBackspaceBranch(buffer, cursor) {
  * @returns {undefined}
  */
 function charDeleteBranch(buffer, cursor) {
-    editor.setValue(deleteChar(buffer, cursor));
+    setValue(buffer, deleteChar(buffer, cursor));
     setCursor(cursor);
 }
 
@@ -175,7 +173,7 @@ function onPointBackspace() {
         var buffer = editor.getValue();
         var ast = attemptParse(buffer);
         if (cursorAtEndOfBlock(ast, cursor)) {
-            blockBranch(ast, cursor);
+            blockBranch(buffer, ast, cursor);
         } else {
             charBackspaceBranch(buffer, cursor);
         }
@@ -195,7 +193,7 @@ function onPointDelete() {
         var buffer = editor.getValue();
         var ast = attemptParse(buffer);
         if (cursorAtStartOfBlock(ast, cursor)) {
-            blockBranch(ast, cursor);
+            blockBranch(buffer, ast, cursor);
         } else {
             charDeleteBranch(buffer, cursor);
         }
@@ -220,13 +218,28 @@ function onRangeReplace() {
  */
 function onRangeDelete() {
     console.log("on range delete"); // eslint-disable-line no-console
+    var buffer = editor.getValue();
     if (attemptParse(editor.getValue())) {
         var selection = getSelected();
         var ast = attemptParse(editor.getValue());
-        selectionBranch(ast, selection);
+        selectionBranch(buffer, ast, selection);
     }
     updateEditorState();
 }
+
+/** 
+ * Set value of editor using executeEdits to preserve undo stack
+ *
+ * @param {string} oldBuffer - String being replaced. 
+ * @param {string} newBuffer - String replacing oldBuffer. 
+*/
+function setValue(oldBuffer, newBuffer) {
+    // get range of editor model 
+    var range = editor.getModel().getFullModelRange();
+    // call execute edits on the editor 
+    editor.executeEdits(oldBuffer, [{ identifier: 'insert', range: range, text: newBuffer }]);
+}
+
 
 // EDITOR INTERFACE CODE
 
@@ -687,7 +700,10 @@ function onDidChangeCursorSelection(e) { // eslint-disable-line no-unused-vars
         + "]"
     );
     */
-
+    if (highlighted) {
+        unhighlight();
+        highlighted = false;
+    }
     if (e.source === "mouse") {
         updateEditorState();
     } else if (e.source === "keyboard") {

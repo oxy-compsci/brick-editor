@@ -240,6 +240,16 @@ function setValue(oldBuffer, newBuffer) {
     editor.executeEdits(oldBuffer, [{ identifier: 'insert', range: range, text: newBuffer }]);
 }
 
+/** 
+ * Resets the buffer value to the last correct parsed state
+ *
+ * @returns {undefined}
+ */
+function resetToParsed() {
+    var buffer = editor.getValue();
+    setValue(buffer, editorState.parsableText);
+} 
+
 
 // EDITOR INTERFACE CODE
 
@@ -334,6 +344,7 @@ function highlight(startLine, startColumn, endLine, endColumn) {
 function unhighlight() {
     decorations = editor.deltaDecorations(decorations, []);
 }
+
 
 // TEXT EDITING CODE
 
@@ -758,6 +769,7 @@ function updateEditorState() {
         editorState.parsable = true;
         editorState.parse = ast;
         editorState.parsableText = buffer;
+        document.getElementById("parseButton").disabled = true;
         var selected = getSelected();
         if (selected) {
             editorState.hasSelected = true;
@@ -772,6 +784,7 @@ function updateEditorState() {
         }
     } else {
         editorState.parsable = false;
+        document.getElementById("parseButton").disabled = false;
     }
 }
 

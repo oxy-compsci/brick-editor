@@ -1,7 +1,4 @@
-/* global require, monaco, deleteHandler, backspaceHandler */
-
-// global variable for the editor
-var editor = null; // eslint-disable-line no-unused-vars
+/* global require, monaco, editor, deleteHandler, backspaceHandler, onDidChangeCursorSelection */
 
 // create monaco editor
 require.config({
@@ -38,6 +35,7 @@ require(["vs/editor/editor.main"], function () {
         }
     });
 
+    // eslint-disable-next-line no-global-assign
     editor = monaco.editor.create(document.getElementById("container"), {
         value: jsCode,
         language: "typescript",
@@ -46,7 +44,5 @@ require(["vs/editor/editor.main"], function () {
 
     editor.addCommand(monaco.KeyCode.Backspace, backspaceHandler);
     editor.addCommand(monaco.KeyCode.Delete, deleteHandler);
-    
+    editor.onDidChangeCursorSelection(onDidChangeCursorSelection);
 });
-
-

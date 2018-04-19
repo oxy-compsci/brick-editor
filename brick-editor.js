@@ -1,5 +1,15 @@
 /* global require, module, editor, editorState, blockDict, monaco */
 
+var BLOCK_DELETE_TYPES = [
+    "IfStatement", 
+    "ForStatement",
+    "FunctionDeclaration",
+    "WhileStatement",
+    "ExpressionStatement",
+    "ReturnStatement",
+    "VariableDeclaration",
+];
+
 // NODE IMPORTS
 
 var recast = require("recast");
@@ -174,7 +184,7 @@ function onPointBackspace() {
         var cursor = getCursor();
         var buffer = editor.getValue();
         var ast = attemptParse(buffer);
-        if (cursorAtEndOfBlock(ast, cursor)) {
+        if (cursorAtEndOfBlock(ast, cursor, BLOCK_DELETE_TYPES)) {
             blockBranch(ast, cursor);
         } else {
             charBackspaceBranch(buffer, cursor);
@@ -384,9 +394,10 @@ function findClosestParent(ast, cursor) {
  *
  * @param {AST} ast - The root of the AST to search through.
  * @param {[Cursor]} cursors - A list of cursors.
+ * @param {[string]} nodeTypes - The types of node to delete.
  * @returns {AST} - The AST node of the sibling.
  */
-function findClosestCommonDeletableBlock(ast, cursors) {
+function findClosestCommonDeletableBlock(ast, cursors, nodeTypes) {
     var deleteNode = null;
     estraverse.traverse(ast.program, {
         enter: function (node) {
@@ -396,13 +407,7 @@ function findClosestCommonDeletableBlock(ast, cursors) {
                     this.break();
                 }
                 if (node.loc.start.line <= cursors[i].lineNumber && node.loc.end.line >= cursors[i].lineNumber) {
-                    if ((node.type === "IfStatement" ||
-                        node.type === "ForStatement" ||
-                        node.type === "FunctionDeclaration" ||
-                        node.type === "WhileStatement" ||
-                        node.type === "ExpressionStatement" ||
-                        node.type === "ReturnStatement" ||
-                        node.type === "VariableDeclaration")) {
+                    if (nodeTypes.includes(node.type)) {
                         if (node.loc.start.line === cursors[i].lineNumber) {
                             if (node.loc.start.column <= cursors[i].column) {
                                 numNodesCommonParent++;
@@ -437,7 +442,7 @@ function findClosestCommonDeletableBlock(ast, cursors) {
  * @returns {node} - deletable node
  */
 function findClosestDeletableBlock(ast, cursor) {
-    return findClosestCommonDeletableBlock(ast, [cursor]);
+    return findClosestCommonDeletableBlock(ast, [cursor], BLOCK_DELETE_TYPES);
 }
 
 /**
@@ -479,17 +484,11 @@ function findPreviousSibling(ast, cursor) {
  * @param {[string]} nodeTypes - The AST nodes to detect.
  * @returns {boolean} - Is cursor at end of block?
  */
-function cursorAtEndOfBlock(ast, cursor) {
+function cursorAtEndOfBlock(ast, cursor, nodeTypes) {
     var endOfBlock = false;
     estraverse.traverse(ast.program, {
         enter: function (node) {
-            if ((node.type === "IfStatement" ||
-                node.type === "ForStatement" ||
-                node.type === "FunctionDeclaration" ||
-                node.type === "WhileStatement" ||
-                node.type === "VariableDeclaration" ||
-                node.type === "ExpressionStatement" ||
-                node.type === "ReturnStatement") &&
+            if (nodeTypes.includes(node.type) &&
                 cursor.lineNumber === node.loc.end.line && cursor.column === node.loc.end.column) {
                 endOfBlock = true;
             }
@@ -538,7 +537,7 @@ function deleteSelected(ast, selection) {
     if (findClosestDeletableBlock(ast, selection[0]) === findClosestDeletableBlock(ast, selection[1])) {
         node = findClosestDeletableBlock(ast, selection[0]);
     } else {
-        node = findClosestCommonDeletableBlock(ast, selection);
+        node = findClosestCommonDeletableBlock(ast, selection, BLOCK_DELETE_TYPES);
     }
     return node;
 }
@@ -765,6 +764,7 @@ function updateEditorState() {
 // Re-throw all other errors.
 try {
     module.exports = {
+        "BLOCK_DELETE_TYPES": BLOCK_DELETE_TYPES,
         "makeCursor": makeCursor,
         "splitAtCursors": splitAtCursors,
         "findClosestCommonParent": findClosestCommonParent,

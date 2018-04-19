@@ -662,49 +662,49 @@ function testFindClosestCommonDeletableBlock() {
     // before function declaration and after return a;
     position1 = brickEditor.makeCursor(1, 0);
     position2 = brickEditor.makeCursor(11, 13);
-    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
+    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2], brickEditor.BLOCK_DELETE_TYPES);
     checkASTPosition(deletableBlock, "FunctionDeclaration", 1, 0, 12, 1);
 
     // after function opening curly brace and before function closing curly brace
     position1 = brickEditor.makeCursor(1, 18);
     position2 = brickEditor.makeCursor(12, 0);
-    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
+    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2], brickEditor.BLOCK_DELETE_TYPES);
     checkASTPosition(deletableBlock, "FunctionDeclaration", 1, 0, 12, 1);
 
     // before var a and before print(3)
     position1 = brickEditor.makeCursor(2, 4);
     position2 = brickEditor.makeCursor(7, 12);
-    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
+    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2], brickEditor.BLOCK_DELETE_TYPES);
     checkASTPosition(deletableBlock, "FunctionDeclaration", 1, 0, 12, 1);
 
     // in print(3) and after break;
     position1 = brickEditor.makeCursor(7, 15);
     position2 = brickEditor.makeCursor(8, 18);
-    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
+    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2], brickEditor.BLOCK_DELETE_TYPES);
     checkASTPosition(deletableBlock, "WhileStatement", 6, 8, 9, 9);
 
     // before if opening curly brace and before print(5)
     position1 = brickEditor.makeCursor(3, 16);
     position2 = brickEditor.makeCursor(4, 8);
-    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
+    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2], brickEditor.BLOCK_DELETE_TYPES);
     checkASTPosition(deletableBlock, "IfStatement", 3, 4, 10, 5);
 
     // before print(5) and in while statement
     position1 = brickEditor.makeCursor(4, 0);
     position2 = brickEditor.makeCursor(6, 11);
-    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
+    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2], brickEditor.BLOCK_DELETE_TYPES);
     checkASTPosition(deletableBlock, "IfStatement", 3, 4, 10, 5);
 
     // after return a and after print(5)
     position1 = brickEditor.makeCursor(11, 13);
     position2 = brickEditor.makeCursor(4, 17);
-    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
+    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2], brickEditor.BLOCK_DELETE_TYPES);
     checkASTPosition(deletableBlock, "FunctionDeclaration", 1, 0, 12, 1);
 
     // before return a; and in return a;
     position1 = brickEditor.makeCursor(11, 4);
     position2 = brickEditor.makeCursor(11, 10);
-    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
+    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2], brickEditor.BLOCK_DELETE_TYPES);
     checkASTPosition(deletableBlock, "ReturnStatement", 11, 4, 11, 13);
 }
 

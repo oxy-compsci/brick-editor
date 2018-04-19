@@ -339,9 +339,10 @@ function unhighlight() {
  *
  * @param {AST} ast - The root of the AST to search through.
  * @param {[Cursor]} cursors - A list of Cursor objects.
+ * @param {[string]} nodeTypes - The types of node to find.
  * @returns {AST} - The parent node.
  */
-function findClosestCommonParent(ast, cursors) {
+function findClosestCommonParent(ast, cursors, nodeTypes) {
     var parentNode = null;
     estraverse.traverse(ast.program, {
         enter: function (node) {
@@ -351,7 +352,7 @@ function findClosestCommonParent(ast, cursors) {
                     this.break();
                 }
                 if (node.loc.start.line <= cursors[i].lineNumber && node.loc.end.line >= cursors[i].lineNumber) {
-                    if ((node.type === "BlockStatement" || node.type === "Program")) {
+                    if (nodeTypes.includes(node.type)) {
                         if (node.loc.start.line === cursors[i].lineNumber) {
                             if (node.loc.start.column <= cursors[i].column) {
                                 numNodesCommonParent++;
@@ -383,10 +384,11 @@ function findClosestCommonParent(ast, cursors) {
  *
  * @param {AST} ast - The root of the AST to search through.
  * @param {Cursor} cursor - The line and column of the cursor.
+ * @param {[string]} nodeTypes - The types of node to find.
  * @returns {AST} - The AST node of the parent.
  */
-function findClosestParent(ast, cursor) {
-    return findClosestCommonParent(ast, [cursor]);
+function findClosestParent(ast, cursor, nodeTypes) {
+    return findClosestCommonParent(ast, [cursor], nodeTypes);
 }
 
 /**
@@ -453,7 +455,7 @@ function findClosestDeletableBlock(ast, cursor) {
  * @returns {node} - The AST node of the sibling.
  */
 function findPreviousSibling(ast, cursor) {
-    var parentNode = findClosestParent(ast, cursor);
+    var parentNode = findClosestParent(ast, cursor, ["BlockStatement", "Program"]);
     var prevSibling = null;
     // loop through index
     for (var i = 0; i < parentNode.body.length; i++) {
@@ -601,9 +603,9 @@ function addBlock(template, ast, cursor) {
     var parentNode = null;
     if (prevSibling) {
         var pos = makeCursor(prevSibling.loc.start.line, prevSibling.loc.start.column);
-        parentNode = findClosestParent(ast, pos);
+        parentNode = findClosestParent(ast, pos, ["BlockStatement", "Program"]);
     } else {
-        parentNode = findClosestParent(ast, cursor);
+        parentNode = findClosestParent(ast, cursor, ["BlockStatement", "Program"]);
     }
     // parse template
     var parsedTemplate = attemptParse(template);

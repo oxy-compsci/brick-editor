@@ -570,6 +570,11 @@ function testFindClosestCommonParent() {
     checkASTPosition(parentNode, "Program", 1, 0, 12, 1);
 }
 
+/**
+ * Test findClosestDeletableBlock.
+ *
+ * @returns {undefined}
+ */
 function testFindClosestDeletableBlock() {
     var ast = recast.parse([
         "function test(a) {",
@@ -631,6 +636,11 @@ function testFindClosestDeletableBlock() {
     
 }
 
+/**
+ * Test findClosestCommonDeletableBlock.
+ *
+ * @returns {undefined}
+ */
 function testFindClosestCommonDeletableBlock() {
     var ast = recast.parse([
         "function test(a) {",

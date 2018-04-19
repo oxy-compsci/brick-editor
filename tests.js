@@ -284,8 +284,18 @@ function testIsBetweenCursors() {
         brickEditor.makeCursor(9, 9),
     ))
     // edge cases
-    assert(brickEditor.isBetweenCursors(
+    assert(!brickEditor.isBetweenCursors(
         brickEditor.makeCursor(1, 0),
+        brickEditor.makeCursor(1, 0),
+        brickEditor.makeCursor(9, 9),
+    ))
+    assert(brickEditor.isBetweenCursors(
+        brickEditor.makeCursor(1, 1),
+        brickEditor.makeCursor(1, 0),
+        brickEditor.makeCursor(9, 9),
+    ))
+    assert(!brickEditor.isBetweenCursors(
+        brickEditor.makeCursor(9, 9),
         brickEditor.makeCursor(1, 0),
         brickEditor.makeCursor(9, 9),
     ))

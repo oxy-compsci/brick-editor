@@ -277,9 +277,9 @@ function setCursor(cursor) {
 }
 
 /**
- * Returns position of selection if selection exists
+ * Returns position of selection if selection exists.
  *
- * @returns {[Cursor]} - A list of two Cursors defining the selction
+ * @returns {[Cursor]} - A list of two Cursors defining the selection.
  */
 function getSelected() {
     var selectionObject = editor.getSelection();

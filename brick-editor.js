@@ -230,9 +230,10 @@ function onRangeReplace() {
  */
 function onRangeDelete() {
     console.log("on range delete"); // eslint-disable-line no-console
-    if (attemptParse(editor.getValue())) {
-        var selection = getSelected();
-        var ast = attemptParse(editor.getValue());
+    var buffer = editor.getValue();
+    var ast = attemptParse(buffer);
+    var selection = getSelected();
+    if (ast && selection) {
         selectionBranch(ast, selection);
     }
     updateEditorState();
@@ -656,9 +657,9 @@ function isBetweenCursors(cursor, startCursor, endCursor) {
  * * the parenthesis around for init-test-update statements
  * * the braces around all block statements
  *
- * @params {string} buffer - The buffer in which text is selected.
- * @params {AST} ast - The parse tree for that buffer.
- * @params {[Cursor]} selection - A list of two Cursors defining the selection.
+ * @param {string} buffer - The buffer in which text is selected.
+ * @param {AST} ast - The parse tree for that buffer.
+ * @param {[Cursor]} selection - A list of two Cursors defining the selection.
  * @returns {boolean} - Whether the selection spans a protected punctuation.
  */
 function spansProtectedPunctuation(buffer, ast, selection) {
@@ -695,9 +696,9 @@ function spansProtectedPunctuation(buffer, ast, selection) {
  * Eg. If the string is "(hello)", this function would returns cursors at
  * columns 0 and 7.
  *
- * @params {string} buffer - The buffer in which text is selected.
- * @params {AST} ast - The parse tree for that buffer.
- * @params {Cursor} cursor - A Cursor around which to search for protected parentheses.
+ * @param {string} buffer - The buffer in which text is selected.
+ * @param {AST} ast - The parse tree for that buffer.
+ * @param {Cursor} cursor - A Cursor around which to search for protected parentheses.
  * @returns {[Cursor]} - The outer Cursors for the parentheses.
  */
 function getSurroundingProtectedParen(buffer, ast, cursor) {
@@ -715,11 +716,13 @@ function getSurroundingProtectedParen(buffer, ast, cursor) {
         return null;
     }
     var line = null;
+    var found = null;
+    var col = null;
     // start at the beginning and move forwards to the first open parenthesis
     var startCursor = closestParent.loc.start;
     found = false;
-    line = buffer.split('\n')[startCursor.line - 1];
-    for (var col = startCursor.column; col <= line.length; col++) {
+    line = buffer.split("\n")[startCursor.line - 1];
+    for (col = startCursor.column; col <= line.length; col++) {
         if (line.charAt(col) === "(") {
             startCursor = makeCursor(startCursor.line, col);
             found = true;
@@ -737,8 +740,8 @@ function getSurroundingProtectedParen(buffer, ast, cursor) {
         endCursor = closestParent.body.loc.start;
     }
     found = false;
-    line = buffer.split('\n')[endCursor.line - 1];
-    for (var col = endCursor.column; col >= 0; col--) {
+    line = buffer.split("\n")[endCursor.line - 1];
+    for (col = endCursor.column; col >= 0; col--) {
         if (line.charAt(col) === ")") {
             endCursor = makeCursor(endCursor.line, col + 1);
             found = true;
@@ -759,9 +762,9 @@ function getSurroundingProtectedParen(buffer, ast, cursor) {
 /**
  * Get the cursors for *outside* of protected braces that contain the cursor.
  *
- * @params {string} buffer - The buffer in which text is selected.
- * @params {AST} ast - The parse tree for that buffer.
- * @params {Cursor} cursor - A Cursor around which to search for protected braces.
+ * @param {string} buffer - The buffer in which text is selected.
+ * @param {AST} ast - The parse tree for that buffer.
+ * @param {Cursor} cursor - A Cursor around which to search for protected braces.
  * @returns {[Cursor]} - The outer Cursors for the braces.
  */
 function getSurroundingProtectedBrace(buffer, ast, cursor) {
@@ -912,12 +915,10 @@ function updateEditorState() {
             editorState.hasSelected = true;
             editorState.cursor = selected;
             editorState.sections = splitAtCursors(buffer, selected);
-            console.log(editorState.cursor[0], editorState.cursor[1]); // eslint-disable-line no-console
         } else {
             editorState.hasSelected = false;
             editorState.cursor = getCursor();
             editorState.sections = splitAtCursors(buffer, [editorState.cursor]);
-            console.log(editorState.cursor); // eslint-disable-line no-console
         }
     } else {
         editorState.parsable = false;

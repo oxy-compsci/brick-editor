@@ -648,6 +648,142 @@ function isBetweenCursors(cursor, startCursor, endCursor) {
 }
 
 /**
+ * Check if a selection spans a protected punctuation.
+ *
+ * Protected punctuation are defined as:
+ * * the parenthesis around function parameters
+ * * the parenthesis around if and while conditions
+ * * the parenthesis around for init-test-update statements
+ * * the braces around all block statements
+ *
+ * @params {string} buffer - The buffer in which text is selected.
+ * @params {AST} ast - The parse tree for that buffer.
+ * @params {[Cursor]} selection - A list of two Cursors defining the selection.
+ * @returns {boolean} - Whether the selection spans a protected punctuation.
+ */
+function spansProtectedPunctuation(buffer, ast, selection) {
+    var cursor = null;
+    var matchingPair = null;
+    // 1. if the start is in a paren and the end is not
+    cursor = selection[0];
+    matchingPair = getSurroundingProtectedParen(buffer, ast, cursor);
+    if (matchingPair && !isBetweenCursors(selection[1], matchingPair[0], matchingPair[1])) {
+        return true;
+    }
+    // 2. if the start is in a brace and the end is not
+    matchingPair = getSurroundingProtectedBrace(buffer, ast, cursor);
+    if (matchingPair && !isBetweenCursors(selection[1], matchingPair[0], matchingPair[1])) {
+        return true;
+    }
+    // 3. if the end is in a paren and the start is not
+    cursor = selection[1];
+    matchingPair = getSurroundingProtectedParen(buffer, ast, cursor);
+    if (matchingPair && !isBetweenCursors(selection[0], matchingPair[0], matchingPair[1])) {
+        return true;
+    }
+    // 4. if the end is in a brace and the start is not
+    matchingPair = getSurroundingProtectedBrace(buffer, ast, cursor);
+    if (matchingPair && !isBetweenCursors(selection[0], matchingPair[0], matchingPair[1])) {
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Get the cursors for *outside* of protected parentheses that contain the cursor.
+ *
+ * Eg. If the string is "(hello)", this function would returns cursors at
+ * columns 0 and 7.
+ *
+ * @params {string} buffer - The buffer in which text is selected.
+ * @params {AST} ast - The parse tree for that buffer.
+ * @params {Cursor} cursor - A Cursor around which to search for protected parentheses.
+ * @returns {[Cursor]} - The outer Cursors for the parentheses.
+ */
+function getSurroundingProtectedParen(buffer, ast, cursor) {
+    // check if cursor is in relevant node types
+    var nodeTypes = [
+        "FunctionDeclaration",
+        "FunctionExpression",
+        "IfStatement",
+        "WhileStatement",
+        "WhileStatement",
+        "ForStatement",
+    ];
+    var closestParent = findClosestParent(ast, cursor, nodeTypes);
+    if (!nodeTypes.includes(closestParent.type)) {
+        return null;
+    }
+    var line = null;
+    // start at the beginning and move forwards to the first open parenthesis
+    var startCursor = closestParent.loc.start;
+    found = false;
+    line = buffer.split('\n')[startCursor.line - 1];
+    for (var col = startCursor.column; col <= line.length; col++) {
+        if (line.charAt(col) === "(") {
+            startCursor = makeCursor(startCursor.line, col);
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        return null;
+    }
+    // start at the brace and move backwards to the first close parenthesis
+    var endCursor = null;
+    if (closestParent.type === "IfStatement") {
+        endCursor = closestParent.consequent.loc.start;
+    } else {
+        endCursor = closestParent.body.loc.start;
+    }
+    found = false;
+    line = buffer.split('\n')[endCursor.line - 1];
+    for (var col = endCursor.column; col >= 0; col--) {
+        if (line.charAt(col) === ")") {
+            endCursor = makeCursor(endCursor.line, col + 1);
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        return null;
+    }
+    // return the parenthesis cursors if they contain the cursor
+    if (isBetweenCursors(cursor, startCursor, endCursor)) {
+        return [startCursor, endCursor];
+    } else {
+        return null;
+    }
+}
+
+/**
+ * Get the cursors for *outside* of protected braces that contain the cursor.
+ *
+ * @params {string} buffer - The buffer in which text is selected.
+ * @params {AST} ast - The parse tree for that buffer.
+ * @params {Cursor} cursor - A Cursor around which to search for protected braces.
+ * @returns {[Cursor]} - The outer Cursors for the braces.
+ */
+function getSurroundingProtectedBrace(buffer, ast, cursor) {
+    // check if cursor is in relevant node types
+    var nodeTypes = ["BlockStatement"];
+    var closestParent = findClosestParent(ast, cursor, nodeTypes);
+    if (closestParent.type !== "BlockStatement") {
+        return null;
+    }
+    // convert to Cursor object
+    var startCursor = closestParent.loc.start;
+    startCursor = makeCursor(startCursor.line, startCursor.column);
+    var endCursor = closestParent.loc.end;
+    endCursor = makeCursor(endCursor.line, endCursor.column);
+    if (isBetweenCursors(cursor, startCursor, endCursor)) {
+        return [startCursor, endCursor];
+    } else {
+        return null;
+    }
+}
+
+/**
  * Split a string into sections delimited by Cursors.
  * 
  * @param {string} buffer - A string of text from the editor.
@@ -805,7 +941,9 @@ try {
         "findClosestParent": findClosestParent,
         "findPreviousSibling": findPreviousSibling,
         "findClosestCommonDeletableBlock": findClosestCommonDeletableBlock,
-        "findClosestDeletableBlock": findClosestDeletableBlock
+        "findClosestDeletableBlock": findClosestDeletableBlock,
+        // syntax
+        "spansProtectedPunctuation": spansProtectedPunctuation,
     };
 } catch (error) {
     if (!(error instanceof ReferenceError)) {

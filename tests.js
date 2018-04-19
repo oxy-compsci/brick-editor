@@ -357,6 +357,52 @@ function testIsBetweenCursors() {
 }
 
 /**
+ * Test spansProtectedPunctuation.
+ *
+ * @returns {undefined}
+ */
+function testSpansProtectedPunctuation() {
+    var buffer = [
+        "function normal(arg1, arg2) {",
+        "    if ( spaced ) {",
+        "        console.log('whatever');",
+        "    } else if (  second_condition  )   {",
+        "    } else {",
+        "    }",
+        "    while ( (nested) ) {",
+        "        for (init; test; update) {",
+        "        }",
+        "    }",
+        "    var empty = function () {};",
+        "}",
+    ].join("\n");
+    var ast = recast.parse(buffer);
+    var protectedCursors = {
+        1: [15, 26, 28],
+        2: [7, 16, 18],
+        4: [4, 14, 35, 39],
+        5: [4, 11],
+        6: [4],
+        7: [10, 21, 23],
+        8: [12, 31, 33],
+        9: [8],
+        10: [4],
+        11: [25, 26, 28, 29],
+        12: [0],
+    };
+    for (var line = 1; line < 13; line++) {
+        for (var col = 0; col < 40; col++) {
+            var selectionStart = brickEditor.makeCursor(line, col);
+            var selectionEnd = brickEditor.makeCursor(line, col + 1);
+            var actual = brickEditor.spansProtectedPunctuation(buffer, ast, [selectionStart, selectionEnd]);
+            var expected = (protectedCursors[line] !== undefined && protectedCursors[line].includes(col));
+            var message = "Protected punctuation test at line " + line + " col " + col + " expected " + expected + " but got " + actual;
+            assert(actual === expected, message);
+        }
+    }
+}
+
+/**
  * Test findClosestParent on block statements with a single line.
  *
  * @returns {undefined}
@@ -802,3 +848,4 @@ testFindPreviousSibling();
 testFindClosestCommonParent();
 testFindClosestDeletableBlock();
 testFindClosestCommonDeletableBlock();
+testSpansProtectedPunctuation();

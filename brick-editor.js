@@ -182,10 +182,13 @@ function onPointBackspace() {
     console.log("on point backspace"); // eslint-disable-line no-console
     if (attemptParse(editor.getValue())) {
         var cursor = getCursor();
+        var oneBack = makeCursor(cursor.lineNumber, cursor.column - 1);
         var buffer = editor.getValue();
         var ast = attemptParse(buffer);
         if (cursorAtEndOfBlock(ast, cursor, BLOCK_DELETE_TYPES)) {
             blockBranch(ast, cursor);
+        } else if (spansProtectedPunctuation(buffer, ast, [oneBack, cursor])) {
+            // ignore the backspace if it's something important
         } else {
             charBackspaceBranch(buffer, cursor);
         }
@@ -202,10 +205,13 @@ function onPointDelete() {
     console.log("on point delete"); // eslint-disable-line no-console
     if (attemptParse(editor.getValue())) {
         var cursor = getCursor();
+        var oneAhead = makeCursor(cursor.lineNumber, cursor.column + 1);
         var buffer = editor.getValue();
         var ast = attemptParse(buffer);
         if (cursorAtStartOfBlock(ast, cursor)) {
             blockBranch(ast, cursor);
+        } else if (spansProtectedPunctuation(buffer, ast, [cursor, oneAhead])) {
+            // ignore the delete if it's something important
         } else {
             charDeleteBranch(buffer, cursor);
         }

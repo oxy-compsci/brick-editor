@@ -476,7 +476,8 @@ function findPreviousSibling(ast, cursor) {
  *
  * @param {AST} ast - The root of the ast to search through.
  * @param {Cursor} cursor - A lineNumber and column object.
- * @returns {boolean} Is cursor at end of block?
+ * @param {[string]} nodeTypes - The AST nodes to detect.
+ * @returns {boolean} - Is cursor at end of block?
  */
 function cursorAtEndOfBlock(ast, cursor) {
     var endOfBlock = false;

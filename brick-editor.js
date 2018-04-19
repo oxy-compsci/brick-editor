@@ -621,6 +621,26 @@ function addBlock(template, ast, cursor) {
 // BUFFER MANIPULATION FUNCTIONS
 
 /**
+ * Test if a cursor is between two others, inclusive.
+ *
+ * @param {Cursor} cursor - the cursor to test.
+ * @param {Cursor} startCursor - the cursor marking the beginning of a region.
+ * @param {Cursor} endCursor - the cursor marking the end of a region.
+ * @returns {boolean} - True if the cursor is between the other two.
+ */
+function isBetweenCursors(cursor, startCursor, endCursor) {
+    var afterStart = (
+        (cursor.lineNumber > startCursor.lineNumber) || (
+            (cursor.lineNumber === startCursor.lineNumber) &&
+            (cursor.column >= startCursor.column)));
+    var beforeEnd = (
+        (cursor.lineNumber < endCursor.lineNumber) || (
+            (cursor.lineNumber === endCursor.lineNumber) &&
+            (cursor.column <= endCursor.column)));
+    return afterStart && beforeEnd;
+}
+
+/**
  * Split a string into sections delimited by Cursors.
  * 
  * @param {string} buffer - A string of text from the editor.
@@ -766,9 +786,14 @@ function updateEditorState() {
 // Re-throw all other errors.
 try {
     module.exports = {
+        // constants
         "BLOCK_DELETE_TYPES": BLOCK_DELETE_TYPES,
+        // utility
         "makeCursor": makeCursor,
+        // text editing
         "splitAtCursors": splitAtCursors,
+        "isBetweenCursors": isBetweenCursors,
+        // AST
         "findClosestCommonParent": findClosestCommonParent,
         "findClosestParent": findClosestParent,
         "findPreviousSibling": findPreviousSibling,

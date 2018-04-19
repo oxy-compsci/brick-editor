@@ -272,6 +272,81 @@ function testSplitAtCursors() {
 }
 
 /**
+ * Test isBetweenCursors.
+ *
+ * @returns {undefined}
+ */
+function testIsBetweenCursors() {
+    // between two lines
+    assert(brickEditor.isBetweenCursors(
+        brickEditor.makeCursor(5, 5),
+        brickEditor.makeCursor(1, 0),
+        brickEditor.makeCursor(9, 9),
+    ))
+    // edge cases
+    assert(brickEditor.isBetweenCursors(
+        brickEditor.makeCursor(1, 0),
+        brickEditor.makeCursor(1, 0),
+        brickEditor.makeCursor(9, 9),
+    ))
+    assert(brickEditor.isBetweenCursors(
+        brickEditor.makeCursor(9, 8),
+        brickEditor.makeCursor(1, 0),
+        brickEditor.makeCursor(9, 9),
+    ))
+    // before start and after end (multi-line)
+    assert(!brickEditor.isBetweenCursors(
+        brickEditor.makeCursor(1, 0),
+        brickEditor.makeCursor(1, 5),
+        brickEditor.makeCursor(9, 9),
+    ))
+    assert(!brickEditor.isBetweenCursors(
+        brickEditor.makeCursor(9, 9),
+        brickEditor.makeCursor(1, 0),
+        brickEditor.makeCursor(9, 5),
+    ))
+    // same line
+    assert(brickEditor.isBetweenCursors(
+        brickEditor.makeCursor(5, 5),
+        brickEditor.makeCursor(5, 0),
+        brickEditor.makeCursor(5, 9),
+    ))
+    // before start and after end (same line)
+    assert(!brickEditor.isBetweenCursors(
+        brickEditor.makeCursor(5, 0),
+        brickEditor.makeCursor(5, 2),
+        brickEditor.makeCursor(5, 7),
+    ))
+    assert(!brickEditor.isBetweenCursors(
+        brickEditor.makeCursor(5, 9),
+        brickEditor.makeCursor(5, 2),
+        brickEditor.makeCursor(5, 7),
+    ))
+    // at start line
+    assert(brickEditor.isBetweenCursors(
+        brickEditor.makeCursor(5, 5),
+        brickEditor.makeCursor(5, 0),
+        brickEditor.makeCursor(9, 9),
+    ))
+    assert(!brickEditor.isBetweenCursors(
+        brickEditor.makeCursor(5, 0),
+        brickEditor.makeCursor(5, 2),
+        brickEditor.makeCursor(9, 9),
+    ))
+    // at end line
+    assert(brickEditor.isBetweenCursors(
+        brickEditor.makeCursor(5, 5),
+        brickEditor.makeCursor(1, 0),
+        brickEditor.makeCursor(5, 9),
+    ))
+    assert(!brickEditor.isBetweenCursors(
+        brickEditor.makeCursor(5, 9),
+        brickEditor.makeCursor(1, 0),
+        brickEditor.makeCursor(5, 7),
+    ))
+}
+
+/**
  * Test findClosestParent on block statements with a single line.
  *
  * @returns {undefined}
@@ -709,6 +784,7 @@ function testFindClosestCommonDeletableBlock() {
 }
 
 testSplitAtCursors();
+testIsBetweenCursors();
 testClosestParentNearBraces();
 testClosestParentMultipleLines();
 testClosestParentNested();

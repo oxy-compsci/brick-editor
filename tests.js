@@ -272,6 +272,137 @@ function testSplitAtCursors() {
 }
 
 /**
+ * Test isBetweenCursors.
+ *
+ * @returns {undefined}
+ */
+function testIsBetweenCursors() {
+    // between two lines
+    assert(brickEditor.isBetweenCursors(
+        brickEditor.makeCursor(5, 5),
+        brickEditor.makeCursor(1, 0),
+        brickEditor.makeCursor(9, 9),
+    ))
+    // edge cases
+    assert(!brickEditor.isBetweenCursors(
+        brickEditor.makeCursor(1, 0),
+        brickEditor.makeCursor(1, 0),
+        brickEditor.makeCursor(9, 9),
+    ))
+    assert(brickEditor.isBetweenCursors(
+        brickEditor.makeCursor(1, 1),
+        brickEditor.makeCursor(1, 0),
+        brickEditor.makeCursor(9, 9),
+    ))
+    assert(!brickEditor.isBetweenCursors(
+        brickEditor.makeCursor(9, 9),
+        brickEditor.makeCursor(1, 0),
+        brickEditor.makeCursor(9, 9),
+    ))
+    assert(brickEditor.isBetweenCursors(
+        brickEditor.makeCursor(9, 8),
+        brickEditor.makeCursor(1, 0),
+        brickEditor.makeCursor(9, 9),
+    ))
+    // before start and after end (multi-line)
+    assert(!brickEditor.isBetweenCursors(
+        brickEditor.makeCursor(1, 0),
+        brickEditor.makeCursor(1, 5),
+        brickEditor.makeCursor(9, 9),
+    ))
+    assert(!brickEditor.isBetweenCursors(
+        brickEditor.makeCursor(9, 9),
+        brickEditor.makeCursor(1, 0),
+        brickEditor.makeCursor(9, 5),
+    ))
+    // same line
+    assert(brickEditor.isBetweenCursors(
+        brickEditor.makeCursor(5, 5),
+        brickEditor.makeCursor(5, 0),
+        brickEditor.makeCursor(5, 9),
+    ))
+    // before start and after end (same line)
+    assert(!brickEditor.isBetweenCursors(
+        brickEditor.makeCursor(5, 0),
+        brickEditor.makeCursor(5, 2),
+        brickEditor.makeCursor(5, 7),
+    ))
+    assert(!brickEditor.isBetweenCursors(
+        brickEditor.makeCursor(5, 9),
+        brickEditor.makeCursor(5, 2),
+        brickEditor.makeCursor(5, 7),
+    ))
+    // at start line
+    assert(brickEditor.isBetweenCursors(
+        brickEditor.makeCursor(5, 5),
+        brickEditor.makeCursor(5, 0),
+        brickEditor.makeCursor(9, 9),
+    ))
+    assert(!brickEditor.isBetweenCursors(
+        brickEditor.makeCursor(5, 0),
+        brickEditor.makeCursor(5, 2),
+        brickEditor.makeCursor(9, 9),
+    ))
+    // at end line
+    assert(brickEditor.isBetweenCursors(
+        brickEditor.makeCursor(5, 5),
+        brickEditor.makeCursor(1, 0),
+        brickEditor.makeCursor(5, 9),
+    ))
+    assert(!brickEditor.isBetweenCursors(
+        brickEditor.makeCursor(5, 9),
+        brickEditor.makeCursor(1, 0),
+        brickEditor.makeCursor(5, 7),
+    ))
+}
+
+/**
+ * Test spansProtectedPunctuation.
+ *
+ * @returns {undefined}
+ */
+function testSpansProtectedPunctuation() {
+    var buffer = [
+        "function normal(arg1, arg2) {",
+        "    if ( spaced ) {",
+        "        console.log('whatever');",
+        "    } else if (  second_condition  )   {",
+        "    } else {",
+        "    }",
+        "    while ( (nested) ) {",
+        "        for (init; test; update) {",
+        "        }",
+        "    }",
+        "    var empty = function () {};",
+        "}",
+    ].join("\n");
+    var ast = recast.parse(buffer);
+    var protectedCursors = {
+        1: [15, 26, 28],
+        2: [7, 16, 18],
+        4: [4, 14, 35, 39],
+        5: [4, 11],
+        6: [4],
+        7: [10, 21, 23],
+        8: [12, 31, 33],
+        9: [8],
+        10: [4],
+        11: [25, 26, 28, 29],
+        12: [0],
+    };
+    for (var line = 1; line < 13; line++) {
+        for (var col = 0; col < 40; col++) {
+            var selectionStart = brickEditor.makeCursor(line, col);
+            var selectionEnd = brickEditor.makeCursor(line, col + 1);
+            var actual = brickEditor.spansProtectedPunctuation(buffer, ast, [selectionStart, selectionEnd]);
+            var expected = (protectedCursors[line] !== undefined && protectedCursors[line].includes(col));
+            var message = "Protected punctuation test at line " + line + " col " + col + " expected " + expected + " but got " + actual;
+            assert(actual === expected, message);
+        }
+    }
+}
+
+/**
  * Test findClosestParent on block statements with a single line.
  *
  * @returns {undefined}
@@ -287,27 +418,27 @@ function testClosestParentNearBraces() {
 
     // after function definition
     position = brickEditor.makeCursor(3, 1);
-    parentNode = brickEditor.findClosestParent(ast, position);
+    parentNode = brickEditor.findClosestParent(ast, position, ["BlockStatement", "Program"]);
     checkASTPosition(parentNode, "Program", 1, 0, 3, 1);
 
     // before function definition
     position = brickEditor.makeCursor(1, 0);
-    parentNode = brickEditor.findClosestParent(ast, position);
+    parentNode = brickEditor.findClosestParent(ast, position, ["BlockStatement", "Program"]);
     checkASTPosition(parentNode, "Program", 1, 0, 3, 1);
 
     // before function open brace
     position = brickEditor.makeCursor(1, 16);
-    parentNode = brickEditor.findClosestParent(ast, position);
+    parentNode = brickEditor.findClosestParent(ast, position, ["BlockStatement", "Program"]);
     checkASTPosition(parentNode, "BlockStatement", 1, 16, 3, 1);
 
     // after function open brace
     position = brickEditor.makeCursor(1, 17);
-    parentNode = brickEditor.findClosestParent(ast, position);
+    parentNode = brickEditor.findClosestParent(ast, position, ["BlockStatement", "Program"]);
     checkASTPosition(parentNode, "BlockStatement", 1, 16, 3, 1);
 
     // before function close brace
     position = brickEditor.makeCursor(3, 0);
-    parentNode = brickEditor.findClosestParent(ast, position);
+    parentNode = brickEditor.findClosestParent(ast, position, ["BlockStatement", "Program"]);
     checkASTPosition(parentNode, "BlockStatement", 1, 16, 3, 1);
 }
 
@@ -329,32 +460,32 @@ function testClosestParentMultipleLines() {
 
     // before first line
     position = brickEditor.makeCursor(2, 4);
-    parentNode = brickEditor.findClosestParent(ast, position);
+    parentNode = brickEditor.findClosestParent(ast, position, ["BlockStatement", "Program"]);
     checkASTPosition(parentNode, "BlockStatement", 1, 16, 5, 1);
 
     // after last line
     position = brickEditor.makeCursor(4, 19);
-    parentNode = brickEditor.findClosestParent(ast, position);
+    parentNode = brickEditor.findClosestParent(ast, position, ["BlockStatement", "Program"]);
     checkASTPosition(parentNode, "BlockStatement", 1, 16, 5, 1);
 
     // before second line
     position = brickEditor.makeCursor(3, 4);
-    parentNode = brickEditor.findClosestParent(ast, position);
+    parentNode = brickEditor.findClosestParent(ast, position, ["BlockStatement", "Program"]);
     checkASTPosition(parentNode, "BlockStatement", 1, 16, 5, 1);
 
     // after second line
     position = brickEditor.makeCursor(3, 19);
-    parentNode = brickEditor.findClosestParent(ast, position);
+    parentNode = brickEditor.findClosestParent(ast, position, ["BlockStatement", "Program"]);
     checkASTPosition(parentNode, "BlockStatement", 1, 16, 5, 1);
 
     // in variable
     position = brickEditor.makeCursor(3, 7);
-    parentNode = brickEditor.findClosestParent(ast, position);
+    parentNode = brickEditor.findClosestParent(ast, position, ["BlockStatement", "Program"]);
     checkASTPosition(parentNode, "BlockStatement", 1, 16, 5, 1);
 
     // in function call
     position = brickEditor.makeCursor(3, 17);
-    parentNode = brickEditor.findClosestParent(ast, position);
+    parentNode = brickEditor.findClosestParent(ast, position, ["BlockStatement", "Program"]);
     checkASTPosition(parentNode, "BlockStatement", 1, 16, 5, 1);
 }
 
@@ -393,37 +524,37 @@ function testClosestParentNested() {
 
     // in while keyword
     position = brickEditor.makeCursor(5, 7);
-    parentNode = brickEditor.findClosestParent(ast, position);
+    parentNode = brickEditor.findClosestParent(ast, position, ["BlockStatement", "Program"]);
     checkASTPosition(parentNode, "BlockStatement", 1, 16, 22, 1);
 
     // in while condition
     position = brickEditor.makeCursor(5, 12);
-    parentNode = brickEditor.findClosestParent(ast, position);
+    parentNode = brickEditor.findClosestParent(ast, position, ["BlockStatement", "Program"]);
     checkASTPosition(parentNode, "BlockStatement", 1, 16, 22, 1);
 
     // in while block
     position = brickEditor.makeCursor(6, 17);
-    parentNode = brickEditor.findClosestParent(ast, position);
+    parentNode = brickEditor.findClosestParent(ast, position, ["BlockStatement", "Program"]);
     checkASTPosition(parentNode, "BlockStatement", 5, 17, 18, 5);
 
     // in if keyword
     position = brickEditor.makeCursor(9, 9);
-    parentNode = brickEditor.findClosestParent(ast, position);
+    parentNode = brickEditor.findClosestParent(ast, position, ["BlockStatement", "Program"]);
     checkASTPosition(parentNode, "BlockStatement", 5, 17, 18, 5);
 
     // in if condition
     position = brickEditor.makeCursor(9, 16);
-    parentNode = brickEditor.findClosestParent(ast, position);
+    parentNode = brickEditor.findClosestParent(ast, position, ["BlockStatement", "Program"]);
     checkASTPosition(parentNode, "BlockStatement", 5, 17, 18, 5);
 
     // in if true block
     position = brickEditor.makeCursor(12, 25);
-    parentNode = brickEditor.findClosestParent(ast, position);
+    parentNode = brickEditor.findClosestParent(ast, position, ["BlockStatement", "Program"]);
     checkASTPosition(parentNode, "BlockStatement", 9, 24, 13, 9);
 
     // in if false block
     position = brickEditor.makeCursor(14, 3);
-    parentNode = brickEditor.findClosestParent(ast, position);
+    parentNode = brickEditor.findClosestParent(ast, position, ["BlockStatement", "Program"]);
     checkASTPosition(parentNode, "BlockStatement", 13, 15, 17, 9);
 
     ast = recast.parse([
@@ -434,7 +565,7 @@ function testClosestParentNested() {
         "}"
     ].join("\n"));
     position = brickEditor.makeCursor(3, 23);
-    parentNode = brickEditor.findClosestParent(ast, position);
+    parentNode = brickEditor.findClosestParent(ast, position, ["BlockStatement", "Program"]);
     checkASTPosition(parentNode, "BlockStatement", 2, 13, 4, 5);
 }
 
@@ -524,49 +655,49 @@ function testFindClosestCommonParent() {
     // before function declaration and after closing curly brace
     position1 = brickEditor.makeCursor(1, 0);
     position2 = brickEditor.makeCursor(12, 1);
-    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
+    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2], ["BlockStatement", "Program"]);
     checkASTPosition(parentNode, "Program", 1, 0, 12, 1);
 
     // before function opening curly brace and before function closing curly brace 
     position1 = brickEditor.makeCursor(1, 17);
     position2 = brickEditor.makeCursor(12, 0);
-    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
+    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2], ["BlockStatement", "Program"]);
     checkASTPosition(parentNode, "BlockStatement", 1, 17, 12, 1);
 
     // before var a and before print(3) 
     position1 = brickEditor.makeCursor(2, 4);
     position2 = brickEditor.makeCursor(7, 12);
-    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
+    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2], ["BlockStatement", "Program"]);
     checkASTPosition(parentNode, "BlockStatement", 1, 17, 12, 1);
 
     // in print(3) and after break;
     position1 = brickEditor.makeCursor(7, 15);
     position2 = brickEditor.makeCursor(8, 18);
-    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
+    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2], ["BlockStatement", "Program"]);
     checkASTPosition(parentNode, "BlockStatement", 6, 21, 9, 9);
 
     // before if opening curly brace and before print(5) 
     position1 = brickEditor.makeCursor(3, 16);
     position2 = brickEditor.makeCursor(4, 8);
-    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
+    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2], ["BlockStatement", "Program"]);
     checkASTPosition(parentNode, "BlockStatement", 3, 16, 5, 5);
 
     // before print(5) and in while statement 
     position1 = brickEditor.makeCursor(4, 0);
     position2 = brickEditor.makeCursor(6, 11);
-    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
+    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2], ["BlockStatement", "Program"]);
     checkASTPosition(parentNode, "BlockStatement", 1, 17, 12, 1);
 
     // after return a and after print(5) 
     position1 = brickEditor.makeCursor(11, 13);
     position2 = brickEditor.makeCursor(4, 17);
-    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
+    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2], ["BlockStatement", "Program"]);
     checkASTPosition(parentNode, "BlockStatement", 1, 17, 12, 1);
 
     // before function opening curly brace and after function closing curly brace
     position1 = brickEditor.makeCursor(1, 17);
     position2 = brickEditor.makeCursor(12, 1);
-    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2]);
+    parentNode = brickEditor.findClosestCommonParent(ast, [position1, position2], ["BlockStatement", "Program"]);
     checkASTPosition(parentNode, "Program", 1, 0, 12, 1);
 }
 
@@ -662,53 +793,54 @@ function testFindClosestCommonDeletableBlock() {
     // before function declaration and after return a;
     position1 = brickEditor.makeCursor(1, 0);
     position2 = brickEditor.makeCursor(11, 13);
-    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
+    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2], brickEditor.BLOCK_DELETE_TYPES);
     checkASTPosition(deletableBlock, "FunctionDeclaration", 1, 0, 12, 1);
 
     // after function opening curly brace and before function closing curly brace
     position1 = brickEditor.makeCursor(1, 18);
     position2 = brickEditor.makeCursor(12, 0);
-    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
+    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2], brickEditor.BLOCK_DELETE_TYPES);
     checkASTPosition(deletableBlock, "FunctionDeclaration", 1, 0, 12, 1);
 
     // before var a and before print(3)
     position1 = brickEditor.makeCursor(2, 4);
     position2 = brickEditor.makeCursor(7, 12);
-    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
+    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2], brickEditor.BLOCK_DELETE_TYPES);
     checkASTPosition(deletableBlock, "FunctionDeclaration", 1, 0, 12, 1);
 
     // in print(3) and after break;
     position1 = brickEditor.makeCursor(7, 15);
     position2 = brickEditor.makeCursor(8, 18);
-    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
+    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2], brickEditor.BLOCK_DELETE_TYPES);
     checkASTPosition(deletableBlock, "WhileStatement", 6, 8, 9, 9);
 
     // before if opening curly brace and before print(5)
     position1 = brickEditor.makeCursor(3, 16);
     position2 = brickEditor.makeCursor(4, 8);
-    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
+    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2], brickEditor.BLOCK_DELETE_TYPES);
     checkASTPosition(deletableBlock, "IfStatement", 3, 4, 10, 5);
 
     // before print(5) and in while statement
     position1 = brickEditor.makeCursor(4, 0);
     position2 = brickEditor.makeCursor(6, 11);
-    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
+    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2], brickEditor.BLOCK_DELETE_TYPES);
     checkASTPosition(deletableBlock, "IfStatement", 3, 4, 10, 5);
 
     // after return a and after print(5)
     position1 = brickEditor.makeCursor(11, 13);
     position2 = brickEditor.makeCursor(4, 17);
-    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
+    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2], brickEditor.BLOCK_DELETE_TYPES);
     checkASTPosition(deletableBlock, "FunctionDeclaration", 1, 0, 12, 1);
 
     // before return a; and in return a;
     position1 = brickEditor.makeCursor(11, 4);
     position2 = brickEditor.makeCursor(11, 10);
-    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2]);
+    deletableBlock = brickEditor.findClosestCommonDeletableBlock(ast, [position1, position2], brickEditor.BLOCK_DELETE_TYPES);
     checkASTPosition(deletableBlock, "ReturnStatement", 11, 4, 11, 13);
 }
 
 testSplitAtCursors();
+testIsBetweenCursors();
 testClosestParentNearBraces();
 testClosestParentMultipleLines();
 testClosestParentNested();
@@ -716,3 +848,4 @@ testFindPreviousSibling();
 testFindClosestCommonParent();
 testFindClosestDeletableBlock();
 testFindClosestCommonDeletableBlock();
+testSpansProtectedPunctuation();

@@ -247,13 +247,14 @@ function onRangeDelete() {
  * Set value of editor using executeEdits to preserve undo stack
  *
  * @param {string} oldBuffer - String being replaced. 
- * @param {string} newBuffer - String replacing oldBuffer. 
+ * @param {string} newBuffer - String replacing oldBuffer.
+ * @returns {undefined}
 */
 function setValue(oldBuffer, newBuffer) {
     // get range of editor model 
     var range = editor.getModel().getFullModelRange();
     // call execute edits on the editor 
-    editor.executeEdits(oldBuffer, [{ identifier: 'insert', range: range, text: newBuffer }]);
+    editor.executeEdits(oldBuffer, [{ identifier: "insert", range: range, text: newBuffer }]);
 }
 
 /** 
@@ -261,7 +262,7 @@ function setValue(oldBuffer, newBuffer) {
  *
  * @returns {undefined}
  */
-function resetToParsed() {
+function resetToParsed() { // eslint-disable-line no-unused-vars
     var buffer = editor.getValue();
     setValue(buffer, editorState.parsableText);
 } 

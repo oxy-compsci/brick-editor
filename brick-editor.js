@@ -137,10 +137,10 @@ function onPointInsert() {
  */
 function onPointBackspace() {
     console.log("on point backspace"); // eslint-disable-line no-console
-    if (attemptParse(editor.getValue())) {
-        var cursor = getCursor();
+    var buffer = editor.getValue();
+    var cursor = getCursor();
+    if (attemptParse(buffer)) {
         var oneBack = makeCursor(cursor.lineNumber, cursor.column - 1);
-        var buffer = editor.getValue();
         var ast = attemptParse(buffer);
         if (cursorAtEndOfBlock(ast, cursor, BLOCK_DELETE_TYPES)) {
             var node = findClosestDeletableBlock(ast, cursor);
@@ -149,12 +149,14 @@ function onPointBackspace() {
                 unhighlight();
             } else {
                 highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
-            } 
+            }
         } else if (spansProtectedPunctuation(buffer, ast, [oneBack, cursor])) {
             // ignore the backspace if it's something important
         } else {
             charBackspaceBranch(buffer, cursor);
         }
+    } else if (cursor.lineNumber == editorState.cursor.lineNumber) { // if unparsable but on same line
+        charBackspaceBranch(buffer, cursor);
     }
     updateEditorState();
 }
@@ -166,10 +168,10 @@ function onPointBackspace() {
  */
 function onPointDelete() {
     console.log("on point delete"); // eslint-disable-line no-console
-    if (attemptParse(editor.getValue())) {
-        var cursor = getCursor();
+    var buffer = editor.getValue();
+    var cursor = getCursor();
+    if (attemptParse(buffer)) {
         var oneAhead = makeCursor(cursor.lineNumber, cursor.column + 1);
-        var buffer = editor.getValue();
         var ast = attemptParse(buffer);
         if (cursorAtStartOfBlock(ast, cursor)) {
             var node = findClosestDeletableBlock(ast, cursor);
@@ -184,6 +186,8 @@ function onPointDelete() {
         } else {
             charDeleteBranch(buffer, cursor);
         }
+    } else if (cursor.lineNumber == editorState.cursor.lineNumber) { // if unparsable but on same line
+        charDeleteBranch(buffer, cursor);
     }
     updateEditorState();
 }
@@ -930,9 +934,21 @@ function updateEditorState() {
             editorState.cursor = getCursor();
             editorState.sections = splitAtCursors(buffer, [editorState.cursor]);
         }
-    } else {
+    } else { // if unparsable, limit to only editorState.cursor lineNumber (or to selection, or to conditional)
         editorState.parsable = false;
         document.getElementById("parseButton").disabled = false;
+        if (editorState.hasSelected) {
+            // limit to region
+        } else {
+            // limit to line
+            if (getCursor().lineNumber == editorState.cursor.lineNumber) {
+                // allow edits
+                console.log("same line");
+            } else {
+                // ignore edits
+                console.log("diff line");
+            }
+        }
     }
 }
 

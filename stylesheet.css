@@ -56,8 +56,8 @@ body {
     cursor: pointer;
 }
 
-    #parseButton:disabled {
-        background-color: grey;
-        color: white;
-        cursor: default;
-    } 
+#parseButton:disabled {
+    background-color: grey;
+    color: white;
+    cursor: default;
+} 

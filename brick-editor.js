@@ -83,55 +83,14 @@ function buttonHandler(i) { // eslint-disable-line no-unused-vars
     var template = blockDict[i].code;
     var ast = attemptParse(editor.getValue());
     var cursor = getCursor();
-    var buffer = editor.getValue();
 
     // add block to buffer string and update editor
     var new_text = addBlock(template, ast, cursor);
     ast = attemptParse(new_text);
-    setValue(buffer, recast.print(ast).code);
+    setValue(recast.print(ast).code);
 
     // update cursor position
     setCursor(cursor);
-}
-
-/**
- * Highlights and deletes selection
- *
- * The setTimeout() function is necessary to allow highlighting before confirm dialog popup
- *
- * @param {string} buffer - The current editor text.
- * @param {AST} ast - The root of the ast to search through.
- * @param {Location} selection - An object with start/end lineNumber and start/end column properties.
- * @returns {undefined}
- */
-function selectionBranch(buffer, ast, selection) {
-    var node = deleteSelected(ast, selection);
-    if (highlighted) {
-        setValue(buffer, deleteBlock(ast, node));
-    } else {
-        highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
-        highlighted = true;
-    } 
-}
-
-/**
- * Deletes a block
- *
- * The setTimeout() function is necessary to allow highlighting before confirm dialog popup
- *
- * @param {string} buffer - The current editor text.
- * @param {AST} ast - The root of the ast to search through.
- * @param {Cursor} cursor - The line and column of the cursor
- * @returns {undefined}
- */
-function blockBranch(buffer, ast, cursor) {
-    var node = findClosestDeletableBlock(ast, cursor);
-    if (highlighted) {
-        setValue(buffer, deleteBlock(ast, node));
-    } else {
-        highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
-        highlighted = true;
-    } 
 }
 
 /**
@@ -142,7 +101,7 @@ function blockBranch(buffer, ast, cursor) {
  * @returns {undefined}
  */
 function charBackspaceBranch(buffer, cursor) {
-    setValue(buffer, backspaceChar(buffer, cursor));
+    setValue(backspaceChar(buffer, cursor));
     cursor.column = cursor.column - 1;
     setCursor(cursor);
 }
@@ -155,7 +114,7 @@ function charBackspaceBranch(buffer, cursor) {
  * @returns {undefined}
  */
 function charDeleteBranch(buffer, cursor) {
-    setValue(buffer, deleteChar(buffer, cursor));
+    setValue(deleteChar(buffer, cursor));
     setCursor(cursor);
 }
 
@@ -184,7 +143,13 @@ function onPointBackspace() {
         var buffer = editor.getValue();
         var ast = attemptParse(buffer);
         if (cursorAtEndOfBlock(ast, cursor, BLOCK_DELETE_TYPES)) {
-            blockBranch(buffer, ast, cursor);
+            var node = findClosestDeletableBlock(ast, cursor);
+            if (highlighted) {
+                setValue(deleteBlock(ast, node));
+                unhighlight();
+            } else {
+                highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
+            } 
         } else if (spansProtectedPunctuation(buffer, ast, [oneBack, cursor])) {
             // ignore the backspace if it's something important
         } else {
@@ -207,7 +172,13 @@ function onPointDelete() {
         var buffer = editor.getValue();
         var ast = attemptParse(buffer);
         if (cursorAtStartOfBlock(ast, cursor)) {
-            blockBranch(buffer, ast, cursor);
+            var node = findClosestDeletableBlock(ast, cursor);
+            if (highlighted) {
+                setValue(deleteBlock(ast, node));
+                unhighlight();
+            } else {
+                highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
+            } 
         } else if (spansProtectedPunctuation(buffer, ast, [cursor, oneAhead])) {
             // ignore the delete if it's something important
         } else {
@@ -238,7 +209,13 @@ function onRangeDelete() {
     var ast = attemptParse(buffer);
     var selection = getSelected();
     if (ast && selection) {
-        selectionBranch(buffer, ast, selection);
+        var node = deleteSelected(ast, selection);
+        if (highlighted) {
+            setValue(deleteBlock(ast, node));
+            unhighlight();
+        } else {
+            highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
+        } 
     }
     updateEditorState();
 }
@@ -246,15 +223,14 @@ function onRangeDelete() {
 /** 
  * Set value of editor using executeEdits to preserve undo stack
  *
- * @param {string} oldBuffer - String being replaced. 
  * @param {string} newBuffer - String replacing oldBuffer.
  * @returns {undefined}
 */
-function setValue(oldBuffer, newBuffer) {
+function setValue(newBuffer) {
     // get range of editor model 
     var range = editor.getModel().getFullModelRange();
     // call execute edits on the editor 
-    editor.executeEdits(oldBuffer, [{ identifier: "insert", range: range, text: newBuffer }]);
+    editor.executeEdits(editor.getValue(), [{ identifier: "insert", range: range, text: newBuffer }]);
 }
 
 /** 
@@ -263,8 +239,7 @@ function setValue(oldBuffer, newBuffer) {
  * @returns {undefined}
  */
 function resetToParsed() { // eslint-disable-line no-unused-vars
-    var buffer = editor.getValue();
-    setValue(buffer, editorState.parsableText);
+    setValue(editorState.parsableText);
 } 
 
 
@@ -351,6 +326,7 @@ function highlight(startLine, startColumn, endLine, endColumn) {
             options: { isWholeLine: false, className: "highlight" }
         }
     ]);
+    highlighted = true;
 }
 
 /**
@@ -360,6 +336,7 @@ function highlight(startLine, startColumn, endLine, endColumn) {
  */
 function unhighlight() {
     decorations = editor.deltaDecorations(decorations, []);
+    highlighted = false;
 }
 
 
@@ -887,7 +864,6 @@ function onDidChangeCursorSelection(e) { // eslint-disable-line no-unused-vars
     */
     if (highlighted) {
         unhighlight();
-        highlighted = false;
     }
     if (e.source === "mouse") {
         updateEditorState();

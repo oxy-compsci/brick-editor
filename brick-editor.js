@@ -15,6 +15,7 @@ var BLOCK_DELETE_TYPES = [
 var recast = require("recast");
 var estraverse = require("estraverse");
 var decorations = null;
+var highlighted = false;
 
 // USER INTERFACE CODE
 
@@ -86,54 +87,10 @@ function buttonHandler(i) { // eslint-disable-line no-unused-vars
     // add block to buffer string and update editor
     var new_text = addBlock(template, ast, cursor);
     ast = attemptParse(new_text);
-    editor.setValue(recast.print(ast).code);
+    setValue(recast.print(ast).code);
 
     // update cursor position
     setCursor(cursor);
-}
-
-/**
- * Highlights and deletes selection
- *
- * The setTimeout() function is necessary to allow highlighting before confirm dialog popup
- *
- * @param {AST} ast - The root of the ast to search through.
- * @param {Location} selection - An object with start/end lineNumber and start/end column properties.
- * @returns {undefined}
- */
-function selectionBranch(ast, selection) {
-    var node = deleteSelected(ast, selection);
-    highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
-    setTimeout(function () {
-        var response = confirm("Are you sure you wish to delete?");
-        if (response) {
-            editor.setValue(deleteBlock(ast, node));
-        } else {
-            unhighlight();
-        }
-    }, 100);
-}
-
-/**
- * Deletes a block
- *
- * The setTimeout() function is necessary to allow highlighting before confirm dialog popup
- *
- * @param {AST} ast - The root of the ast to search through.
- * @param {Cursor} cursor - The line and column of the cursor
- * @returns {undefined}
- */
-function blockBranch(ast, cursor) {
-    var node = findClosestDeletableBlock(ast, cursor);
-    highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
-    setTimeout(function () {
-        var response = confirm("Are you sure you wish to delete?");
-        if (response) {
-            editor.setValue(deleteBlock(ast, node));
-        } else {
-            unhighlight();
-        }
-    }, 100);
 }
 
 /**
@@ -144,7 +101,7 @@ function blockBranch(ast, cursor) {
  * @returns {undefined}
  */
 function charBackspaceBranch(buffer, cursor) {
-    editor.setValue(backspaceChar(buffer, cursor));
+    setValue(backspaceChar(buffer, cursor));
     cursor.column = cursor.column - 1;
     setCursor(cursor);
 }
@@ -157,7 +114,7 @@ function charBackspaceBranch(buffer, cursor) {
  * @returns {undefined}
  */
 function charDeleteBranch(buffer, cursor) {
-    editor.setValue(deleteChar(buffer, cursor));
+    setValue(deleteChar(buffer, cursor));
     setCursor(cursor);
 }
 
@@ -186,7 +143,13 @@ function onPointBackspace() {
         var buffer = editor.getValue();
         var ast = attemptParse(buffer);
         if (cursorAtEndOfBlock(ast, cursor, BLOCK_DELETE_TYPES)) {
-            blockBranch(ast, cursor);
+            var node = findClosestDeletableBlock(ast, cursor);
+            if (highlighted) {
+                setValue(deleteBlock(ast, node));
+                unhighlight();
+            } else {
+                highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
+            } 
         } else if (spansProtectedPunctuation(buffer, ast, [oneBack, cursor])) {
             // ignore the backspace if it's something important
         } else {
@@ -209,7 +172,13 @@ function onPointDelete() {
         var buffer = editor.getValue();
         var ast = attemptParse(buffer);
         if (cursorAtStartOfBlock(ast, cursor)) {
-            blockBranch(ast, cursor);
+            var node = findClosestDeletableBlock(ast, cursor);
+            if (highlighted) {
+                setValue(deleteBlock(ast, node));
+                unhighlight();
+            } else {
+                highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
+            } 
         } else if (spansProtectedPunctuation(buffer, ast, [cursor, oneAhead])) {
             // ignore the delete if it's something important
         } else {
@@ -240,10 +209,39 @@ function onRangeDelete() {
     var ast = attemptParse(buffer);
     var selection = getSelected();
     if (ast && selection) {
-        selectionBranch(ast, selection);
+        var node = deleteSelected(ast, selection);
+        if (highlighted) {
+            setValue(deleteBlock(ast, node));
+            unhighlight();
+        } else {
+            highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
+        } 
     }
     updateEditorState();
 }
+
+/** 
+ * Set value of editor using executeEdits to preserve undo stack
+ *
+ * @param {string} newBuffer - String replacing oldBuffer.
+ * @returns {undefined}
+*/
+function setValue(newBuffer) {
+    // get range of editor model 
+    var range = editor.getModel().getFullModelRange();
+    // call execute edits on the editor 
+    editor.executeEdits(editor.getValue(), [{ identifier: "insert", range: range, text: newBuffer }]);
+}
+
+/** 
+ * Resets the buffer value to the last correct parsed state
+ *
+ * @returns {undefined}
+ */
+function resetToParsed() { // eslint-disable-line no-unused-vars
+    setValue(editorState.parsableText);
+} 
+
 
 // EDITOR INTERFACE CODE
 
@@ -328,6 +326,7 @@ function highlight(startLine, startColumn, endLine, endColumn) {
             options: { isWholeLine: false, className: "highlight" }
         }
     ]);
+    highlighted = true;
 }
 
 /**
@@ -337,7 +336,9 @@ function highlight(startLine, startColumn, endLine, endColumn) {
  */
 function unhighlight() {
     decorations = editor.deltaDecorations(decorations, []);
+    highlighted = false;
 }
+
 
 // TEXT EDITING CODE
 
@@ -861,7 +862,9 @@ function onDidChangeCursorSelection(e) { // eslint-disable-line no-unused-vars
         + "]"
     );
     */
-
+    if (highlighted) {
+        unhighlight();
+    }
     if (e.source === "mouse") {
         updateEditorState();
     } else if (e.source === "keyboard") {
@@ -916,6 +919,7 @@ function updateEditorState() {
         editorState.parsable = true;
         editorState.parse = ast;
         editorState.parsableText = buffer;
+        document.getElementById("parseButton").disabled = true;
         var selected = getSelected();
         if (selected) {
             editorState.hasSelected = true;
@@ -928,6 +932,7 @@ function updateEditorState() {
         }
     } else {
         editorState.parsable = false;
+        document.getElementById("parseButton").disabled = false;
     }
 }
 

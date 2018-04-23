@@ -934,21 +934,9 @@ function updateEditorState() {
             editorState.cursor = getCursor();
             editorState.sections = splitAtCursors(buffer, [editorState.cursor]);
         }
-    } else { // if unparsable, limit to only editorState.cursor lineNumber (or to selection, or to conditional)
+    } else { 
         editorState.parsable = false;
         document.getElementById("parseButton").disabled = false;
-        if (editorState.hasSelected) {
-            // limit to region
-        } else {
-            // limit to line
-            if (getCursor().lineNumber == editorState.cursor.lineNumber) {
-                // allow edits
-                console.log("same line");
-            } else {
-                // ignore edits
-                console.log("diff line");
-            }
-        }
     }
 }
 

@@ -786,13 +786,8 @@ function getSurroundingProtectedParen(buffer, ast, cursor) {
     }
     // return the parenthesis cursors if they contain the cursor
     if (isBetweenCursors(cursor, startCursor, endCursor)) {
-        editorState.openParenthesis = positionFromStart(buffer, startCursor);
-        console.log(endCursor);
-        editorState.closeParenthesis = positionFromEnd(buffer, endCursor);
         return [startCursor, endCursor];
     } else {
-        editorState.openParenthesis = null;
-        editorState.closeParenthesis = null;
         return null;
     }
 }
@@ -946,11 +941,21 @@ function attemptParse(text) {
 function updateEditorState() {
     var buffer = editor.getValue();
     var ast = attemptParse(buffer);
+    var cursor = getCursor();
     if (ast) {
         editorState.parsable = true;
         editorState.parse = ast;
         editorState.parsableText = buffer;
         document.getElementById("parseButton").disabled = true;
+        // save positions of parentheses
+        var parentheses = getSurroundingProtectedParen(buffer, ast, cursor);
+        if (parentheses) {
+            editorState.openParenthesis = positionFromStart(buffer, parentheses[0]);
+            editorState.closeParenthesis = positionFromEnd(buffer, parentheses[1]);
+        } else {
+            editorState.openParenthesis = null;
+            editorState.closeParenthesis = null;
+        }
         var selected = getSelected();
         if (selected) {
             editorState.hasSelected = true;
@@ -976,13 +981,12 @@ function updateEditorState() {
 function positionFromStart(buffer, cursor) {
     var splitBuffer = buffer.split("\n");
     var firstPart = splitBuffer.slice(0, cursor.lineNumber - 1);
-    var sameLine = splitBuffer.slice(cursor.lineNumber - 1, cursor.lineNumber).join('');
-    sameLine = sameLine.split('');
-    sameLine = sameLine.slice(0, cursor.column).join('');
+    var sameLine = splitBuffer.slice(cursor.lineNumber - 1, cursor.lineNumber).join("");
+    sameLine = sameLine.split("");
+    sameLine = sameLine.slice(0, cursor.column).join("");
     firstPart.push(sameLine);
-    var firstPart = firstPart.join('\n');
 
-    return firstPart.length;
+    return firstPart.join("\n").length;
 }
 
 /**
@@ -995,14 +999,12 @@ function positionFromStart(buffer, cursor) {
 function positionFromEnd(buffer, cursor) {
     var splitBuffer = buffer.split("\n");                                                      
     var lastPart = splitBuffer.slice(cursor.lineNumber);                                     
-    var sameLine = splitBuffer.slice(cursor.lineNumber - 1, cursor.lineNumber).join(''); 
-    sameLine = sameLine.split('');                                                            
-    sameLine = sameLine.slice(cursor.column - 1).join('');
+    var sameLine = splitBuffer.slice(cursor.lineNumber - 1, cursor.lineNumber).join(""); 
+    sameLine = sameLine.split("");                                                            
+    sameLine = sameLine.slice(cursor.column - 1).join("");
     lastPart.unshift(sameLine);                                                                 
-    var lastPart = lastPart.join('\n');    
-    console.log(lastPart);
-    console.log(lastPart.length);
-    return lastPart.length;
+
+    return lastPart.join("\n").length;
 }
 
 // Attempt to export the module for testing purposes. If we get a

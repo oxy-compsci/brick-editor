@@ -17,4 +17,7 @@ var editorState = {
     cursor: null,
     // the sections of text delimited by the cursor/selection at the last parsable point
     sections: [],
+    // save positions of parentheses in relation to beginning and end of buffer
+    openParenthesis: null,
+    closeParenthesis: null,
 };

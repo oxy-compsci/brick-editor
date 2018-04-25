@@ -156,7 +156,18 @@ function onPointBackspace() {
             charBackspaceBranch(buffer, cursor);
         }
     } else if (cursor.lineNumber == editorState.cursor.lineNumber) { // if unparsable but on same line
-        charBackspaceBranch(buffer, cursor);
+        // if unparsable and cursor inside (), then only backspace if cursor is not before '(' 
+        if (editorState.openParenthesis && editorState.closeParenthesis) {
+            if (positionFromStart(buffer, cursor) - 1 == editorState.openParenthesis) {
+                // ignore backspace if parenthesis
+            } else if (positionFromStart(buffer, cursor) <= editorState.openParenthesis || positionFromEnd(buffer, cursor) <= editorState.closeParenthesis) { // if left of ( or right of )
+                // ignore delete if left or right of conditional
+            } else {
+                charBackspaceBranch(buffer, cursor);
+            }
+        } else {
+            charBackspaceBranch(buffer, cursor);
+        }
     }
     updateEditorState();
 }
@@ -180,14 +191,25 @@ function onPointDelete() {
                 unhighlight();
             } else {
                 highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
-            } 
+            }
         } else if (spansProtectedPunctuation(buffer, ast, [cursor, oneAhead])) {
             // ignore the delete if it's something important
         } else {
             charDeleteBranch(buffer, cursor);
         }
     } else if (cursor.lineNumber == editorState.cursor.lineNumber) { // if unparsable but on same line
-        charDeleteBranch(buffer, cursor);
+        // if inside parentheses when became unparsable 
+        if (editorState.openParenthesis && editorState.closeParenthesis) {
+            if (positionFromEnd(buffer, cursor) - 1 == editorState.closeParenthesis) { // if directly to left of ) 
+                // ignore delete if parenthesis
+            } else if (positionFromStart(buffer, cursor) <= editorState.openParenthesis || positionFromEnd(buffer, cursor) <= editorState.closeParenthesis) { // if left of ( or right of )
+                // ignore delete if left or right of conditional
+            } else {
+                charDeleteBranch(buffer, cursor);
+            }
+        } else {
+            charDeleteBranch(buffer, cursor);
+        }
     }
     updateEditorState();
 }
@@ -764,8 +786,13 @@ function getSurroundingProtectedParen(buffer, ast, cursor) {
     }
     // return the parenthesis cursors if they contain the cursor
     if (isBetweenCursors(cursor, startCursor, endCursor)) {
+        editorState.openParenthesis = positionFromStart(buffer, startCursor);
+        console.log(endCursor);
+        editorState.closeParenthesis = positionFromEnd(buffer, endCursor);
         return [startCursor, endCursor];
     } else {
+        editorState.openParenthesis = null;
+        editorState.closeParenthesis = null;
         return null;
     }
 }
@@ -938,6 +965,44 @@ function updateEditorState() {
         editorState.parsable = false;
         document.getElementById("parseButton").disabled = false;
     }
+}
+/**
+ * Gets the character position of cursor from beginning of buffer
+ *
+ * @param {string} buffer - A string of text from the editor.
+ * @param {Cursor} cursor - A cursor position.
+ * @returns {string} Position of cursor from beginning of buffer
+ */
+function positionFromStart(buffer, cursor) {
+    var splitBuffer = buffer.split("\n");
+    var firstPart = splitBuffer.slice(0, cursor.lineNumber - 1);
+    var sameLine = splitBuffer.slice(cursor.lineNumber - 1, cursor.lineNumber).join('');
+    sameLine = sameLine.split('');
+    sameLine = sameLine.slice(0, cursor.column).join('');
+    firstPart.push(sameLine);
+    var firstPart = firstPart.join('\n');
+
+    return firstPart.length;
+}
+
+/**
+ * Gets the character position of cursor from end of buffer
+ *
+ * @param {string} buffer - A string of text from the editor.
+ * @param {Cursor} cursor - A cursor position.
+ * @returns {string} Position of cursor from end of buffer
+ */
+function positionFromEnd(buffer, cursor) {
+    var splitBuffer = buffer.split("\n");                                                      
+    var lastPart = splitBuffer.slice(cursor.lineNumber);                                     
+    var sameLine = splitBuffer.slice(cursor.lineNumber - 1, cursor.lineNumber).join(''); 
+    sameLine = sameLine.split('');                                                            
+    sameLine = sameLine.slice(cursor.column - 1).join('');
+    lastPart.unshift(sameLine);                                                                 
+    var lastPart = lastPart.join('\n');    
+    console.log(lastPart);
+    console.log(lastPart.length);
+    return lastPart.length;
 }
 
 // Attempt to export the module for testing purposes. If we get a

@@ -986,7 +986,7 @@ function positionFromStart(buffer, cursor) {
     sameLine = sameLine.slice(0, cursor.column).join("");
     firstPart.push(sameLine);
 
-    return firstPart.join("\n").length;
+    return firstPart.join("").length;
 }
 
 /**
@@ -997,14 +997,14 @@ function positionFromStart(buffer, cursor) {
  * @returns {string} Position of cursor from end of buffer
  */
 function positionFromEnd(buffer, cursor) {
-    var splitBuffer = buffer.split("\n");                                                      
-    var lastPart = splitBuffer.slice(cursor.lineNumber);                                     
+    var splitBuffer = buffer.split("\n");        
+    var lastPart = splitBuffer.slice(cursor.lineNumber); 
     var sameLine = splitBuffer.slice(cursor.lineNumber - 1, cursor.lineNumber).join(""); 
-    sameLine = sameLine.split("");                                                            
-    sameLine = sameLine.slice(cursor.column - 1).join("");
-    lastPart.unshift(sameLine);                                                                 
+    sameLine = sameLine.split("");               
+    sameLine = sameLine.slice(cursor.column).join("");
+    lastPart.unshift(sameLine);                                
 
-    return lastPart.join("\n").length;
+    return lastPart.join("").length;
 }
 
 // Attempt to export the module for testing purposes. If we get a
@@ -1019,6 +1019,8 @@ try {
         // text editing
         "splitAtCursors": splitAtCursors,
         "isBetweenCursors": isBetweenCursors,
+        "positionFromEnd": positionFromEnd,
+        "positionFromStart": positionFromStart,
         // AST
         "findClosestCommonParent": findClosestCommonParent,
         "findClosestParent": findClosestParent,

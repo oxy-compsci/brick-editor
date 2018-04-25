@@ -839,6 +839,92 @@ function testFindClosestCommonDeletableBlock() {
     checkASTPosition(deletableBlock, "ReturnStatement", 11, 4, 11, 13);
 }
 
+/**
+ * Test positionFromStart()
+ *
+ * @returns {undefined}
+ */
+function testPositionFromStart() {
+    var buffer = [
+        "function normal(a, b) {", //23
+        "    if (a) {", //12
+        "        console.log('hello');", //29
+        "    }", //5
+        "}", //1
+    ].join("\n");
+    var cursor = null;
+    var length = null;
+    var msg = "Unequal length"
+
+    // before function
+    cursor = brickEditor.makeCursor(1, 0);
+    length = brickEditor.positionFromStart(buffer, cursor);
+    assertEqual(length, 0, msg);
+
+    // after function
+    cursor = brickEditor.makeCursor(1, 8);
+    length = brickEditor.positionFromStart(buffer, cursor);
+    assertEqual(length, 8, msg);
+
+    // before console.log
+    cursor = brickEditor.makeCursor(3, 8);
+    length = brickEditor.positionFromStart(buffer, cursor);
+    assertEqual(length, 43, msg);
+
+    // before last curly brace
+    cursor = brickEditor.makeCursor(5, 0);
+    length = brickEditor.positionFromStart(buffer, cursor);
+    assertEqual(length, 69, msg);
+
+    // after last curly brace
+    cursor = brickEditor.makeCursor(5, 1);
+    length = brickEditor.positionFromStart(buffer, cursor);
+    assertEqual(length, 70, msg);
+}
+
+/**
+ * Test positionFromEnd()
+ *
+ * @returns {undefined}
+ */
+function testPositionFromEnd() {
+    var buffer = [
+        "function normal(a, b) {", //23
+        "    if (a) {", //12
+        "        console.log('hello');", //29
+        "    }", //5
+        "}", //1
+    ].join("\n");
+    var cursor = null;
+    var length = null;
+    var msg = "Unequal length"
+
+    // before function
+    cursor = brickEditor.makeCursor(1, 0);
+    length = brickEditor.positionFromEnd(buffer, cursor);
+    assertEqual(length, 70, msg);
+
+    // after function
+    cursor = brickEditor.makeCursor(1, 8);
+    length = brickEditor.positionFromEnd(buffer, cursor);
+    assertEqual(length, 62, msg);
+
+    // before console.log
+    cursor = brickEditor.makeCursor(3, 8);
+    length = brickEditor.positionFromEnd(buffer, cursor);
+    assertEqual(length, 27, msg);
+
+    // before last curly brace
+    cursor = brickEditor.makeCursor(5, 0);
+    length = brickEditor.positionFromEnd(buffer, cursor);
+    assertEqual(length, 1, msg);
+
+    // after last curly brace
+    cursor = brickEditor.makeCursor(5, 1);
+    length = brickEditor.positionFromEnd(buffer, cursor);
+    assertEqual(length, 0, msg);
+}
+
 testSplitAtCursors();
 testIsBetweenCursors();
 testClosestParentNearBraces();
@@ -849,3 +935,5 @@ testFindClosestCommonParent();
 testFindClosestDeletableBlock();
 testFindClosestCommonDeletableBlock();
 testSpansProtectedPunctuation();
+testPositionFromStart();
+testPositionFromEnd();

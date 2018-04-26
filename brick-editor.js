@@ -137,10 +137,10 @@ function onPointInsert() {
  */
 function onPointBackspace() {
     console.log("on point backspace"); // eslint-disable-line no-console
-    if (attemptParse(editor.getValue())) {
-        var cursor = getCursor();
+    var buffer = editor.getValue();
+    var cursor = getCursor();
+    if (attemptParse(buffer)) {
         var oneBack = makeCursor(cursor.lineNumber, cursor.column - 1);
-        var buffer = editor.getValue();
         var ast = attemptParse(buffer);
         if (cursorAtEndOfBlock(ast, cursor, BLOCK_DELETE_TYPES)) {
             var node = findClosestDeletableBlock(ast, cursor);
@@ -149,9 +149,24 @@ function onPointBackspace() {
                 unhighlight();
             } else {
                 highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
-            } 
+            }
         } else if (spansProtectedPunctuation(buffer, ast, [oneBack, cursor])) {
             // ignore the backspace if it's something important
+            // flash editor screen 
+            flash(); 
+        } else {
+            charBackspaceBranch(buffer, cursor);
+        }
+    } else if (cursor.lineNumber == editorState.cursor.lineNumber) { // if unparsable but on same line
+        // if unparsable and cursor inside (), then only backspace if cursor is not before '(' 
+        if (editorState.openParenthesis && editorState.closeParenthesis) {
+            if (positionFromStart(buffer, cursor) - 1 == editorState.openParenthesis) {
+                // ignore backspace if parenthesis
+            } else if (positionFromStart(buffer, cursor) <= editorState.openParenthesis || positionFromEnd(buffer, cursor) <= editorState.closeParenthesis) { // if left of ( or right of )
+                // ignore delete if left or right of conditional
+            } else {
+                charBackspaceBranch(buffer, cursor);
+            }
         } else {
             charBackspaceBranch(buffer, cursor);
         }
@@ -166,10 +181,10 @@ function onPointBackspace() {
  */
 function onPointDelete() {
     console.log("on point delete"); // eslint-disable-line no-console
-    if (attemptParse(editor.getValue())) {
-        var cursor = getCursor();
+    var buffer = editor.getValue();
+    var cursor = getCursor();
+    if (attemptParse(buffer)) {
         var oneAhead = makeCursor(cursor.lineNumber, cursor.column + 1);
-        var buffer = editor.getValue();
         var ast = attemptParse(buffer);
         if (cursorAtStartOfBlock(ast, cursor)) {
             var node = findClosestDeletableBlock(ast, cursor);
@@ -178,9 +193,24 @@ function onPointDelete() {
                 unhighlight();
             } else {
                 highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
-            } 
+            }
         } else if (spansProtectedPunctuation(buffer, ast, [cursor, oneAhead])) {
             // ignore the delete if it's something important
+            // flash editor screen 
+            flash(); 
+        } else {
+            charDeleteBranch(buffer, cursor);
+        }
+    } else if (cursor.lineNumber == editorState.cursor.lineNumber) { // if unparsable but on same line
+        // if inside parentheses when became unparsable 
+        if (editorState.openParenthesis && editorState.closeParenthesis) {
+            if (positionFromEnd(buffer, cursor) - 1 == editorState.closeParenthesis) { // if directly to left of ) 
+                // ignore delete if parenthesis
+            } else if (positionFromStart(buffer, cursor) <= editorState.openParenthesis || positionFromEnd(buffer, cursor) <= editorState.closeParenthesis) { // if left of ( or right of )
+                // ignore delete if left or right of conditional
+            } else {
+                charDeleteBranch(buffer, cursor);
+            }
         } else {
             charDeleteBranch(buffer, cursor);
         }
@@ -339,6 +369,16 @@ function unhighlight() {
     highlighted = false;
 }
 
+/** 
+ * Flashes the editor background for 100 ms 
+ * 
+ * @returns {undefined} 
+ */
+function flash() {
+    monaco.editor.setTheme("flash");
+    setTimeout(function () { monaco.editor.setTheme("normal"); }, 100);
+
+} 
 
 // TEXT EDITING CODE
 
@@ -915,11 +955,21 @@ function attemptParse(text) {
 function updateEditorState() {
     var buffer = editor.getValue();
     var ast = attemptParse(buffer);
+    var cursor = getCursor();
     if (ast) {
         editorState.parsable = true;
         editorState.parse = ast;
         editorState.parsableText = buffer;
         document.getElementById("parseButton").disabled = true;
+        // save positions of parentheses
+        var parentheses = getSurroundingProtectedParen(buffer, ast, cursor);
+        if (parentheses) {
+            editorState.openParenthesis = positionFromStart(buffer, parentheses[0]);
+            editorState.closeParenthesis = positionFromEnd(buffer, parentheses[1]);
+        } else {
+            editorState.openParenthesis = null;
+            editorState.closeParenthesis = null;
+        }
         var selected = getSelected();
         if (selected) {
             editorState.hasSelected = true;
@@ -930,10 +980,45 @@ function updateEditorState() {
             editorState.cursor = getCursor();
             editorState.sections = splitAtCursors(buffer, [editorState.cursor]);
         }
-    } else {
+    } else { 
         editorState.parsable = false;
         document.getElementById("parseButton").disabled = false;
     }
+}
+/**
+ * Gets the character position of cursor from beginning of buffer
+ *
+ * @param {string} buffer - A string of text from the editor.
+ * @param {Cursor} cursor - A cursor position.
+ * @returns {string} Position of cursor from beginning of buffer
+ */
+function positionFromStart(buffer, cursor) {
+    var splitBuffer = buffer.split("\n");
+    var firstPart = splitBuffer.slice(0, cursor.lineNumber - 1);
+    var sameLine = splitBuffer.slice(cursor.lineNumber - 1, cursor.lineNumber).join("");
+    sameLine = sameLine.split("");
+    sameLine = sameLine.slice(0, cursor.column).join("");
+    firstPart.push(sameLine);
+
+    return firstPart.join("").length;
+}
+
+/**
+ * Gets the character position of cursor from end of buffer
+ *
+ * @param {string} buffer - A string of text from the editor.
+ * @param {Cursor} cursor - A cursor position.
+ * @returns {string} Position of cursor from end of buffer
+ */
+function positionFromEnd(buffer, cursor) {
+    var splitBuffer = buffer.split("\n");        
+    var lastPart = splitBuffer.slice(cursor.lineNumber); 
+    var sameLine = splitBuffer.slice(cursor.lineNumber - 1, cursor.lineNumber).join(""); 
+    sameLine = sameLine.split("");               
+    sameLine = sameLine.slice(cursor.column).join("");
+    lastPart.unshift(sameLine);                                
+
+    return lastPart.join("").length;
 }
 
 // Attempt to export the module for testing purposes. If we get a
@@ -948,6 +1033,8 @@ try {
         // text editing
         "splitAtCursors": splitAtCursors,
         "isBetweenCursors": isBetweenCursors,
+        "positionFromEnd": positionFromEnd,
+        "positionFromStart": positionFromStart,
         // AST
         "findClosestCommonParent": findClosestCommonParent,
         "findClosestParent": findClosestParent,

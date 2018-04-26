@@ -21,7 +21,7 @@ require(["vs/editor/editor.main"], function () {
     ].join("\n");
 
     // defines a custom theme with varied color text
-    monaco.editor.defineTheme("customTheme", {
+    monaco.editor.defineTheme("normal", {
         base: "vs-dark", // can also be vs-dark or hc-black
         inherit: true, // can also be false to completely replace the builtin rules
         // set comment color
@@ -35,11 +35,25 @@ require(["vs/editor/editor.main"], function () {
         }
     });
 
+    monaco.editor.defineTheme("flash", {
+        base: "vs-dark", // can also be vs-dark or hc-black 
+        inherit: true, // can also be false to completely replace the builtin rules 
+        // set comment color 
+        rules: [
+            { token: "comment.js", foreground: "ff0066", fontStyle: "bold" },
+        ],
+        // set editor background color 
+        colors: {
+            "editor.background": "#262673",
+            "editor.lineHighlightBackground": "#800060",
+        }
+    }); 
+
     // eslint-disable-next-line no-global-assign
     editor = monaco.editor.create(document.getElementById("container"), {
         value: jsCode,
         language: "typescript",
-        theme: "customTheme"
+        theme: "normal"
     });
 
     editor.addCommand(monaco.KeyCode.Backspace, backspaceHandler);

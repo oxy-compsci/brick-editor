@@ -152,6 +152,8 @@ function onPointBackspace() {
             }
         } else if (spansProtectedPunctuation(buffer, ast, [oneBack, cursor])) {
             // ignore the backspace if it's something important
+            // flash editor screen 
+            flash(); 
         } else {
             charBackspaceBranch(buffer, cursor);
         }
@@ -194,6 +196,8 @@ function onPointDelete() {
             }
         } else if (spansProtectedPunctuation(buffer, ast, [cursor, oneAhead])) {
             // ignore the delete if it's something important
+            // flash editor screen 
+            flash(); 
         } else {
             charDeleteBranch(buffer, cursor);
         }
@@ -365,6 +369,16 @@ function unhighlight() {
     highlighted = false;
 }
 
+/** 
+ * Flashes the editor background for 100 ms 
+ * 
+ * @returns {undefined} 
+ */
+function flash() {
+    monaco.editor.setTheme("flash");
+    setTimeout(function () { monaco.editor.setTheme("normal"); }, 100);
+
+} 
 
 // TEXT EDITING CODE
 

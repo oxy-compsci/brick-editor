@@ -286,9 +286,6 @@ function makeCursor(line, col) {
     if (line < 1) {
         throw "line must be a positive integer, but got " + col;
     }
-    if (col < 0) {
-        throw "col must be a non-negative integer, but got " + col;
-    }
     return { "lineNumber": line, "column": col };
 }
 

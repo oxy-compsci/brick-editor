@@ -102,7 +102,12 @@ function buttonHandler(i) { // eslint-disable-line no-unused-vars
  */
 function charBackspaceBranch(buffer, cursor) {
     setValue(backspaceChar(buffer, cursor));
-    cursor.column = cursor.column - 1;
+    if (cursor.column === 0) {
+        cursor.lineNumber -= 1;
+        cursor.column = Infinity;
+    } else {
+        cursor.column = cursor.column - 1;
+    }
     setCursor(cursor);
 }
 

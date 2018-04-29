@@ -102,7 +102,12 @@ function buttonHandler(i) { // eslint-disable-line no-unused-vars
  */
 function charBackspaceBranch(buffer, cursor) {
     setValue(backspaceChar(buffer, cursor));
-    cursor.column = cursor.column - 1;
+    if (cursor.column === 0) {
+        cursor.lineNumber -= 1;
+        cursor.column = Infinity;
+    } else {
+        cursor.column = cursor.column - 1;
+    }
     setCursor(cursor);
 }
 
@@ -285,9 +290,6 @@ function resetToParsed() { // eslint-disable-line no-unused-vars
 function makeCursor(line, col) {
     if (line < 1) {
         throw "line must be a positive integer, but got " + col;
-    }
-    if (col < 0) {
-        throw "col must be a non-negative integer, but got " + col;
     }
     return { "lineNumber": line, "column": col };
 }

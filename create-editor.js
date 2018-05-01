@@ -53,13 +53,16 @@ require(["vs/editor/editor.main"], function () {
     editor = monaco.editor.create(document.getElementById("container"), {
         value: jsCode,
         language: "typescript",
-        theme: "normal"
+        theme: "normal",
         formatOnType: true,
         formatOnPaste: true,
     });
 
     monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
-        allowNonTsExtensions: true,
+        /* Disable allowNonTsExtensions to remove keywords from autocomplete
+         * This introduces an error in the console. Unknown if this will have a negative impact when compiling.
+         */
+        allowNonTsExtensions: false,      
         noLib: true
     });
 

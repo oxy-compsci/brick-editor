@@ -16,7 +16,7 @@ var blockDict = [ // eslint-disable-line no-unused-vars
     },
     {
         "blockName": "FOR",
-        "code": "for (var i = 0; i < value; i++){\n\t // do something \n}",
+        "code": "for (var i = 0; i < value; i++) {\n\t // do something \n}",
         "buttonColor": "#00bfff", // deepskyblue
         "kind": "monaco.languages.CompletionItemKind.Function",
         "documentation": "for loop"

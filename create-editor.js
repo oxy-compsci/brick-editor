@@ -67,7 +67,7 @@ require(["vs/editor/editor.main"], function () {
     });
 
     monaco.languages.registerCompletionItemProvider('typescript', {
-        provideCompletionItems: () => {
+        provideCompletionItems: function() {
             var autocomplete = [];
             for (var i = 0; i < blockDict.length; i++) {
                 autocomplete[i] = {

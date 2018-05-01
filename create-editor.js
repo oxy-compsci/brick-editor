@@ -1,4 +1,4 @@
-/* global require, monaco, editor, deleteHandler, backspaceHandler, onDidChangeCursorSelection */
+/* global require, monaco, editor, deleteHandler, backspaceHandler, onDidChangeCursorSelection, blockDict */
 
 // create monaco editor
 require.config({
@@ -66,7 +66,7 @@ require(["vs/editor/editor.main"], function () {
         noLib: true
     });
 
-    monaco.languages.registerCompletionItemProvider('typescript', {
+    monaco.languages.registerCompletionItemProvider("typescript", {
         provideCompletionItems: function() {
             var autocomplete = [];
             for (var i = 0; i < blockDict.length; i++) {
@@ -74,8 +74,8 @@ require(["vs/editor/editor.main"], function () {
                     label: blockDict[i]["blockName"],
                     kind: blockDict[i]["kind"],
                     documentation: blockDict[i]["documentation"],
-                    insertText: blockDict[i]["code"]                
-                }
+                    insertText: blockDict[i]["code"]
+                };
             }
             return autocomplete;
         }

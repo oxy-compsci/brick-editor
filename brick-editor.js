@@ -132,6 +132,22 @@ function charDeleteBranch(buffer, cursor) {
  */
 function onPointInsert() {
     console.log("on point insert"); // eslint-disable-line no-console
+    // if editor is unparsable
+    if (!editorState.parsable) {
+        // if cursor is where editor became unparsable
+        var cursor = getCursor();
+        var buffer = editor.getValue();
+        if (cursor.lineNumber == editorState.cursor.lineNumber) {
+            // if cursor was inside parentheses
+            if (editorState.openParenthesis && editorState.closeParenthesis) {
+                if (positionFromStart(buffer, cursor) - 1 <= editorState.openParenthesis || positionFromEnd(buffer, cursor) <= editorState.closeParenthesis) {
+                    editor.trigger("", "undo");
+                }
+            }
+        } else {
+            editor.trigger("", "undo");
+        }
+    }
     updateEditorState();
 }
 
@@ -166,9 +182,11 @@ function onPointBackspace() {
         // if unparsable and cursor inside (), then only backspace if cursor is not before '(' 
         if (editorState.openParenthesis && editorState.closeParenthesis) {
             if (positionFromStart(buffer, cursor) - 1 == editorState.openParenthesis) {
-                // ignore backspace if parenthesis
+                // ignore backspace if directly to the right of (
+                flash();
             } else if (positionFromStart(buffer, cursor) <= editorState.openParenthesis || positionFromEnd(buffer, cursor) <= editorState.closeParenthesis) { // if left of ( or right of )
-                // ignore delete if left or right of conditional
+                // ignore backspace if to the right of ) or to the left of (
+                flash();
             } else {
                 charBackspaceBranch(buffer, cursor);
             }
@@ -211,8 +229,10 @@ function onPointDelete() {
         if (editorState.openParenthesis && editorState.closeParenthesis) {
             if (positionFromEnd(buffer, cursor) - 1 == editorState.closeParenthesis) { // if directly to left of ) 
                 // ignore delete if parenthesis
+                flash();
             } else if (positionFromStart(buffer, cursor) <= editorState.openParenthesis || positionFromEnd(buffer, cursor) <= editorState.closeParenthesis) { // if left of ( or right of )
                 // ignore delete if left or right of conditional
+                flash();
             } else {
                 charDeleteBranch(buffer, cursor);
             }

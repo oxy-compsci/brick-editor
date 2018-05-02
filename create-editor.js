@@ -1,4 +1,4 @@
-/* global require, monaco, editor, deleteHandler, backspaceHandler, onDidChangeCursorSelection */
+/* global require, monaco, editor, deleteHandler, backspaceHandler, onDidChangeCursorSelection, blockDict */
 
 // create monaco editor
 require.config({
@@ -53,7 +53,32 @@ require(["vs/editor/editor.main"], function () {
     editor = monaco.editor.create(document.getElementById("container"), {
         value: jsCode,
         language: "typescript",
-        theme: "normal"
+        theme: "normal",
+        formatOnType: true,
+        formatOnPaste: true,
+    });
+
+    monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
+        /* Disable allowNonTsExtensions to remove keywords from autocomplete
+         * This introduces an error in the console. Unknown if this will have a negative impact when compiling.
+         */
+        allowNonTsExtensions: false,      
+        noLib: true
+    });
+
+    monaco.languages.registerCompletionItemProvider("typescript", {
+        provideCompletionItems: function() {
+            var autocomplete = [];
+            for (var i = 0; i < blockDict.length; i++) {
+                autocomplete[i] = {
+                    label: blockDict[i].blockName,
+                    kind: "monaco.languages.CompletionItemKind.Function",
+                    documentation: blockDict.documentation,
+                    insertText: blockDict[i].code
+                };
+            }
+            return autocomplete;
+        }
     });
 
     editor.addCommand(monaco.KeyCode.Backspace, backspaceHandler);

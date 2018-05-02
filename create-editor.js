@@ -71,10 +71,10 @@ require(["vs/editor/editor.main"], function () {
             var autocomplete = [];
             for (var i = 0; i < blockDict.length; i++) {
                 autocomplete[i] = {
-                    label: blockDict[i]["blockName"],
-                    kind: blockDict[i]["kind"],
-                    documentation: blockDict[i]["documentation"],
-                    insertText: blockDict[i]["code"]
+                    label: blockDict[i].blockName,
+                    kind: "monaco.languages.CompletionItemKind.Function",
+                    documentation: blockDict.documentation,
+                    insertText: blockDict[i].code
                 };
             }
             return autocomplete;

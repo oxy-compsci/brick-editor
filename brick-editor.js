@@ -15,7 +15,9 @@ var BLOCK_DELETE_TYPES = [
 var recast = require("recast");
 var estraverse = require("estraverse");
 var decorations = null;
+var condDecorations = null;
 var highlighted = false;
+var highlightedParen = false;
 
 // USER INTERFACE CODE
 
@@ -132,6 +134,30 @@ function charDeleteBranch(buffer, cursor) {
  */
 function onPointInsert() {
     console.log("on point insert"); // eslint-disable-line no-console
+    // if editor is unparsable
+    if (!attemptParse(editor.getValue())) {
+        // if cursor is where editor became unparsable
+        var cursor = getCursor();
+        var buffer = editor.getValue();
+        if (cursor.lineNumber == editorState.cursor.lineNumber) {
+            // if cursor was inside parentheses
+            if (editorState.openParenthesis && editorState.closeParenthesis) {
+                // add one column position to editorState.parentheses because character was added but not accounted for
+                if (!highlightedParen) {
+                    editorState.parentheses[1].column += 1;
+                    highlightParen(editorState.parentheses);
+                }
+                // if outside of parentheses currently
+                if (positionFromStart(buffer, cursor) - 1 <= editorState.openParenthesis || positionFromEnd(buffer, cursor) <= editorState.closeParenthesis) {
+                    editor.trigger("", "undo");
+                } else {
+                    editorState.parentheses[1].column = editorState.parentheses[1].column + 1;
+                }
+            }
+        } else {
+            editor.trigger("", "undo");
+        }
+    }
     updateEditorState();
 }
 
@@ -163,13 +189,17 @@ function onPointBackspace() {
             charBackspaceBranch(buffer, cursor);
         }
     } else if (cursor.lineNumber == editorState.cursor.lineNumber) { // if unparsable but on same line
-        // if unparsable and cursor inside (), then only backspace if cursor is not before '(' 
+        // if cursor was inside () at last parsable state
         if (editorState.openParenthesis && editorState.closeParenthesis) {
             if (positionFromStart(buffer, cursor) - 1 == editorState.openParenthesis) {
-                // ignore backspace if parenthesis
-            } else if (positionFromStart(buffer, cursor) <= editorState.openParenthesis || positionFromEnd(buffer, cursor) <= editorState.closeParenthesis) { // if left of ( or right of )
-                // ignore delete if left or right of conditional
+                // ignore backspace if directly to the right of (
+                flash();
+            } else if (positionFromStart(buffer, cursor) <= editorState.openParenthesis || positionFromEnd(buffer, cursor) <= editorState.closeParenthesis) {
+                // ignore backspace if to the right of ) or to the left of (
+                flash();
             } else {
+                // update highlighting range
+                editorState.parentheses[1].column = editorState.parentheses[1].column - 1;
                 charBackspaceBranch(buffer, cursor);
             }
         } else {
@@ -189,6 +219,9 @@ function onPointDelete() {
     var buffer = editor.getValue();
     var cursor = getCursor();
     if (attemptParse(buffer)) {
+        if (highlightedParen) {
+            unhighlightParen();
+        }
         var oneAhead = makeCursor(cursor.lineNumber, cursor.column + 1);
         var ast = attemptParse(buffer);
         if (cursorAtStartOfBlock(ast, cursor)) {
@@ -211,9 +244,13 @@ function onPointDelete() {
         if (editorState.openParenthesis && editorState.closeParenthesis) {
             if (positionFromEnd(buffer, cursor) - 1 == editorState.closeParenthesis) { // if directly to left of ) 
                 // ignore delete if parenthesis
+                flash();
             } else if (positionFromStart(buffer, cursor) <= editorState.openParenthesis || positionFromEnd(buffer, cursor) <= editorState.closeParenthesis) { // if left of ( or right of )
                 // ignore delete if left or right of conditional
+                flash();
             } else {
+                // update highlighting range
+                editorState.parentheses[1].column = editorState.parentheses[1].column - 1;
                 charDeleteBranch(buffer, cursor);
             }
         } else {
@@ -354,7 +391,7 @@ function getSelected() {
 function highlight(startLine, startColumn, endLine, endColumn) {
     decorations = editor.deltaDecorations([], [
         {
-            range: new monaco.Range(startLine, startColumn, endLine, endColumn),
+            range: new monaco.Range(startLine, startColumn, endLine, endColumn + 1),
             options: { isWholeLine: false, className: "highlight" }
         }
     ]);
@@ -381,6 +418,36 @@ function flash() {
     setTimeout(function () { monaco.editor.setTheme("normal"); }, 100);
 
 } 
+
+/**
+ * Highlights from opening parenthesis to closed parenthesis, inclusive
+ *
+ * @param {ObjectArray} parenthesesRange - Array containing start cursor and end cursor
+ * @returns {undefined}
+ */
+function highlightParen(parenthesesRange) {
+    var startLine = parenthesesRange[0].lineNumber;
+    var startColumn = parenthesesRange[0].column;
+    var endLine = parenthesesRange[1].lineNumber;
+    var endColumn = parenthesesRange[1].column;
+    condDecorations = editor.deltaDecorations([], [
+        {
+            range: new monaco.Range(startLine, startColumn + 1, endLine, endColumn),
+            options: { isWholeLine: false, className: "conditionalHighlight" }
+        }
+    ]);
+    highlightedParen = true;
+}
+
+/**
+ * Unhighlights range from opening to closed parentheses
+ *
+ * @returns {undefined}
+ */
+function unhighlightParen() {
+    condDecorations = editor.deltaDecorations(condDecorations, []);
+    highlightedParen = false;
+}
 
 // TEXT EDITING CODE
 
@@ -959,12 +1026,16 @@ function updateEditorState() {
     var ast = attemptParse(buffer);
     var cursor = getCursor();
     if (ast) {
+        if (highlightedParen) {
+            unhighlightParen();
+        }
         editorState.parsable = true;
         editorState.parse = ast;
         editorState.parsableText = buffer;
         document.getElementById("parseButton").disabled = true;
         // save positions of parentheses
         var parentheses = getSurroundingProtectedParen(buffer, ast, cursor);
+        editorState.parentheses = parentheses;
         if (parentheses) {
             editorState.openParenthesis = positionFromStart(buffer, parentheses[0]);
             editorState.closeParenthesis = positionFromEnd(buffer, parentheses[1]);
@@ -984,6 +1055,15 @@ function updateEditorState() {
         }
     } else { 
         editorState.parsable = false;
+        // if on same line
+        if (cursor.lineNumber == editorState.cursor.lineNumber) {
+            if (editorState.parentheses) {
+                if (highlightedParen) {
+                    unhighlightParen();
+                }
+                highlightParen(editorState.parentheses);
+            }
+        }
         document.getElementById("parseButton").disabled = false;
     }
 }

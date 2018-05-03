@@ -436,7 +436,7 @@ function highlightParen(parenthesesRange) {
             options: { isWholeLine: false, className: "conditionalHighlight" }
         }
     ]);
-    highlightedParen = true
+    highlightedParen = true;
 }
 
 /**

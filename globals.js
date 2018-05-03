@@ -20,4 +20,7 @@ var editorState = {
     // save positions of parentheses in relation to beginning and end of buffer
     openParenthesis: null,
     closeParenthesis: null,
+    // save cursors of parentheses
+    parentheses: null,
+    
 };

@@ -42,6 +42,10 @@ body {
     background-color: #8a08b5;
 }
 
+.conditionalHighlight {
+    background-color: blue;
+}
+
 #parseButton, #parseButton:enabled {
     border: solid black 1px;
     background-color: red;

@@ -1006,10 +1006,9 @@ function getSurroundingProtectedBrace(buffer, ast, cursor) {
         return null;
     }
     // convert to Cursor object
-    var startCursor = closestParent.loc.start;
-    startCursor = makeCursor(startCursor.line, startCursor.column);
-    var endCursor = closestParent.loc.end;
-    endCursor = makeCursor(endCursor.line, endCursor.column);
+    var nodeCursor = getNodeLoc(closestParent);
+    var startCursor = nodeCursor[0];
+    var endCursor = nodeCursor[1];
     if (isBetweenCursors(cursor, startCursor, endCursor)) {
         return [startCursor, endCursor];
     } else {

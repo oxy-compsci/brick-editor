@@ -467,6 +467,7 @@ function onDidChangeCursorSelection(e) { // eslint-disable-line no-unused-vars
         unhighlight();
     }
     if (e.source === "mouse") {
+        // FIXME dragging selected text
         updateEditorState();
     } else if (e.source === "keyboard") {
         if (e.reason === 4) { // pasted

@@ -361,7 +361,7 @@ function flash() {
 function highlight(startLine, startColumn, endLine, endColumn) {
     decorations = editor.deltaDecorations([], [
         {
-            range: new monaco.Range(startLine, startColumn, endLine, endColumn + 1),
+            range: new monaco.Range(startLine, startColumn + 1, endLine, endColumn + 1),
             options: { isWholeLine: false, className: "highlight" }
         }
     ]);

@@ -14,8 +14,7 @@ var BLOCK_DELETE_TYPES = [
 
 var recast = require("recast");
 var estraverse = require("estraverse");
-var decorations = null;
-var condDecorations = null;
+var decorations = [];
 var highlighted = false;
 var highlightedParen = false;
 
@@ -42,8 +41,10 @@ function onPointInsert() {
             if (editorState.openParenthesis && editorState.closeParenthesis) {
                 // add one column position to editorState.parentheses because character was added but not accounted for
                 if (!highlightedParen) {
-                    editorState.parentheses[1].column += 1;
-                    highlightParen(editorState.parentheses);
+                    var startCursor = editorState.parentheses[0];
+                    var endCursor = editorState.parentheses[1];
+                    endCursor.column += 1;
+                    highlightParen(startCursor, endCursor);
                 }
                 // if outside of parentheses currently
                 if (positionFromStart(buffer, cursor) - 1 <= editorState.openParenthesis || positionFromEnd(buffer, cursor) <= editorState.closeParenthesis) {
@@ -80,7 +81,7 @@ function onPointBackspace() {
                 setValue(deleteBlock(ast, node));
                 unhighlight();
             } else {
-                highlight(startCursor.lineNumber, startCursor.column, endCursor.lineNumber, endCursor.column);
+                highlightBlock(startCursor, endCursor);
             }
         } else if (spansProtectedPunctuation(buffer, ast, [oneBack, cursor])) {
             // ignore the backspace if it's something important
@@ -121,7 +122,7 @@ function onPointDelete() {
     var cursor = getCursor();
     if (attemptParse(buffer)) {
         if (highlightedParen) {
-            unhighlightParen();
+            unhighlight();
         }
         var oneAhead = makeCursor(cursor.lineNumber, cursor.column + 1);
         var ast = attemptParse(buffer);
@@ -134,7 +135,7 @@ function onPointDelete() {
                 setValue(deleteBlock(ast, node));
                 unhighlight();
             } else {
-                highlight(startCursor.lineNumber, startCursor.column, endCursor.lineNumber, endCursor.column);
+                highlightBlock(startCursor, endCursor);
             }
         } else if (spansProtectedPunctuation(buffer, ast, [cursor, oneAhead])) {
             // ignore the delete if it's something important
@@ -193,7 +194,7 @@ function onRangeDelete() {
             setValue(deleteBlock(ast, node));
             unhighlight();
         } else {
-            highlight(startCursor.lineNumber, startCursor.column, endCursor.lineNumber, endCursor.column);
+            highlightBlock(startCursor, endCursor);
         } 
     }
     updateEditorState();
@@ -216,7 +217,7 @@ function updateEditorState() {
     var cursor = getCursor();
     if (ast) {
         if (highlightedParen) {
-            unhighlightParen();
+            unhighlight();
         }
         editorState.parsable = true;
         editorState.parse = ast;
@@ -248,9 +249,11 @@ function updateEditorState() {
         if (cursor.lineNumber === editorState.cursor.lineNumber) {
             if (editorState.parentheses) {
                 if (highlightedParen) {
-                    unhighlightParen();
+                    unhighlight();
                 }
-                highlightParen(editorState.parentheses);
+                var startCursor = editorState.parentheses[0];
+                var endCursor = editorState.parentheses[1];
+                highlightParen(startCursor, endCursor);
             }
         }
         document.getElementById("parseButton").disabled = false;
@@ -270,6 +273,7 @@ function updateEditorState() {
  */
 function resetToParsed() { // eslint-disable-line no-unused-vars
     setValue(editorState.parsableText);
+    unhighlight();
 } 
 
 /**
@@ -352,20 +356,44 @@ function flash() {
 /**
  * Highlights editor text based on start/end lineNumbers and start/end columns
  *
- * @param {int} startLine - LineNumber where range will start
- * @param {int} startColumn - Column where range will start
- * @param {int} endLine - LineNumber where range will end
- * @param {int} endColumn - Column where range will end
+ * @param {Cursor} startCursor - The start of the range
+ * @param {Cursor} endCursor - The end of the range
  * @returns {undefined}
  */
-function highlight(startLine, startColumn, endLine, endColumn) {
-    decorations = editor.deltaDecorations([], [
-        {
-            range: new monaco.Range(startLine, startColumn + 1, endLine, endColumn + 1),
-            options: { isWholeLine: false, className: "highlight" }
-        }
-    ]);
+function highlightBlock(startCursor, endCursor) {
+    highlight(startCursor, endCursor, "highlight");
     highlighted = true;
+}
+
+/**
+ * Highlights from opening parenthesis to closed parenthesis, inclusive
+ *
+ * @param {Cursor} startCursor - The start of the range
+ * @param {Cursor} endCursor - The end of the range
+ * @returns {undefined}
+ */
+function highlightParen(startCursor, endCursor) {
+    highlight(startCursor, endCursor, "conditionalHighlight");
+    highlightedParen = true;
+}
+
+/**
+ * Highlights editor text based on start/end lineNumbers and start/end columns
+ *
+ * @param {Cursor} startCursor - The start of the range
+ * @param {Cursor} endCursor - The end of the range
+ * @param {string} cssClass - The CSS to use for highlighting
+ * @returns {undefined}
+ */
+function highlight(startCursor, endCursor, cssClass) {
+    var startLine = startCursor.lineNumber;
+    var startColumn = startCursor.column;
+    var endLine = endCursor.lineNumber;
+    var endColumn = endCursor.column;
+    decorations = editor.deltaDecorations(decorations, [{
+        range: new monaco.Range(startLine, startColumn + 1, endLine, endColumn + 1),
+        options: { isWholeLine: false, className: cssClass },
+    }]);
 }
 
 /**
@@ -376,35 +404,6 @@ function highlight(startLine, startColumn, endLine, endColumn) {
 function unhighlight() {
     decorations = editor.deltaDecorations(decorations, []);
     highlighted = false;
-}
-
-/**
- * Highlights from opening parenthesis to closed parenthesis, inclusive
- *
- * @param {ObjectArray} parenthesesRange - Array containing start cursor and end cursor
- * @returns {undefined}
- */
-function highlightParen(parenthesesRange) {
-    var startLine = parenthesesRange[0].lineNumber;
-    var startColumn = parenthesesRange[0].column;
-    var endLine = parenthesesRange[1].lineNumber;
-    var endColumn = parenthesesRange[1].column;
-    condDecorations = editor.deltaDecorations([], [
-        {
-            range: new monaco.Range(startLine, startColumn + 1, endLine, endColumn),
-            options: { isWholeLine: false, className: "conditionalHighlight" }
-        }
-    ]);
-    highlightedParen = true;
-}
-
-/**
- * Unhighlights range from opening to closed parentheses
- *
- * @returns {undefined}
- */
-function unhighlightParen() {
-    condDecorations = editor.deltaDecorations(condDecorations, []);
     highlightedParen = false;
 }
 

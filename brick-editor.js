@@ -73,11 +73,14 @@ function onPointBackspace() {
         var ast = attemptParse(buffer);
         if (cursorAtEndOfBlock(ast, cursor, BLOCK_DELETE_TYPES)) {
             var node = findClosestDeletableBlock(ast, cursor);
+            var nodeCursors = getNodeLoc(node);
+            var startCursor = nodeCursors[0];
+            var endCursor = nodeCursors[1];
             if (highlighted) {
                 setValue(deleteBlock(ast, node));
                 unhighlight();
             } else {
-                highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
+                highlight(startCursor.lineNumber, startCursor.column, endCursor.lineNumber, endCursor.column);
             }
         } else if (spansProtectedPunctuation(buffer, ast, [oneBack, cursor])) {
             // ignore the backspace if it's something important
@@ -124,11 +127,14 @@ function onPointDelete() {
         var ast = attemptParse(buffer);
         if (cursorAtStartOfBlock(ast, cursor, BLOCK_DELETE_TYPES)) {
             var node = findClosestDeletableBlock(ast, cursor);
+            var nodeCursors = getNodeLoc(node);
+            var startCursor = nodeCursors[0];
+            var endCursor = nodeCursors[1];
             if (highlighted) {
                 setValue(deleteBlock(ast, node));
                 unhighlight();
             } else {
-                highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
+                highlight(startCursor.lineNumber, startCursor.column, endCursor.lineNumber, endCursor.column);
             }
         } else if (spansProtectedPunctuation(buffer, ast, [cursor, oneAhead])) {
             // ignore the delete if it's something important
@@ -180,11 +186,14 @@ function onRangeDelete() {
     var selection = getSelected();
     if (ast && selection) {
         var node = deleteSelected(ast, selection);
+        var nodeCursors = getNodeLoc(node);
+        var startCursor = nodeCursors[0];
+        var endCursor = nodeCursors[1];
         if (highlighted) {
             setValue(deleteBlock(ast, node));
             unhighlight();
         } else {
-            highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
+            highlight(startCursor.lineNumber, startCursor.column, endCursor.lineNumber, endCursor.column);
         } 
     }
     updateEditorState();
@@ -623,6 +632,24 @@ function attemptParse(text) {
 }
 
 /**
+ * Get the start and end Cursors of a AST Node
+ *
+ * @param {AST} node - The node whose position we want.
+ * @returns {[Cursor]} - A list of two cursors.
+ */
+function getNodeLoc(node) {
+    var startCursor = makeCursor(
+        node.loc.start.line,
+        node.loc.start.column
+    );
+    var endCursor = makeCursor(
+        node.loc.end.line,
+        node.loc.end.column
+    );
+    return [startCursor, endCursor];
+}
+
+/**
  * Find the closest shared parent between multiple cursors.
  *
  * @param {AST} ast - The root of the AST to search through.
@@ -635,18 +662,21 @@ function findClosestCommonParent(ast, cursors, nodeTypes) {
     estraverse.traverse(ast.program, {
         enter: function (node) {
             var numNodesCommonParent = 0;
+            var nodeCursors = getNodeLoc(node);
+            var startCursor = nodeCursors[0];
+            var endCursor = nodeCursors[1];
             for (var i = 0; i < cursors.length; i++) {
-                if (node.loc.start.line > cursors[i].lineNumber) {
+                if (startCursor.lineNumber > cursors[i].lineNumber) {
                     this.break();
                 }
-                if (node.loc.start.line <= cursors[i].lineNumber && node.loc.end.line >= cursors[i].lineNumber) {
+                if (startCursor.lineNumber <= cursors[i].lineNumber && endCursor.lineNumber >= cursors[i].lineNumber) {
                     if (nodeTypes.includes(node.type)) {
-                        if (node.loc.start.line === cursors[i].lineNumber) {
-                            if (node.loc.start.column <= cursors[i].column) {
+                        if (startCursor.lineNumber === cursors[i].lineNumber) {
+                            if (startCursor.column <= cursors[i].column) {
                                 numNodesCommonParent++;
                             }
-                        } else if (node.loc.end.line === cursors[i].lineNumber) {
-                            if (node.loc.end.column > cursors[i].column) {
+                        } else if (endCursor.lineNumber === cursors[i].lineNumber) {
+                            if (endCursor.column > cursors[i].column) {
                                 numNodesCommonParent++;
                             }
                         } else {
@@ -692,18 +722,21 @@ function findClosestCommonDeletableBlock(ast, cursors, nodeTypes) {
     estraverse.traverse(ast.program, {
         enter: function (node) {
             var numNodesCommonParent = 0;
+            var nodeCursors = getNodeLoc(node);
+            var startCursor = nodeCursors[0];
+            var endCursor = nodeCursors[1];
             for (var i = 0; i < cursors.length; i++) {
-                if (node.loc.start.line > cursors[i].lineNumber) {
+                if (startCursor.lineNumber > cursors[i].lineNumber) {
                     this.break();
                 }
-                if (node.loc.start.line <= cursors[i].lineNumber && node.loc.end.line >= cursors[i].lineNumber) {
+                if (startCursor.lineNumber <= cursors[i].lineNumber && endCursor.lineNumber >= cursors[i].lineNumber) {
                     if (nodeTypes.includes(node.type)) {
-                        if (node.loc.start.line === cursors[i].lineNumber) {
-                            if (node.loc.start.column <= cursors[i].column) {
+                        if (startCursor.lineNumber === cursors[i].lineNumber) {
+                            if (startCursor.column <= cursors[i].column) {
                                 numNodesCommonParent++;
                             }
-                        } else if (node.loc.end.line === cursors[i].lineNumber) {
-                            if (node.loc.end.column >= cursors[i].column) {
+                        } else if (endCursor.lineNumber === cursors[i].lineNumber) {
+                            if (endCursor.column >= cursors[i].column) {
                                 numNodesCommonParent++;
                             }
                         } else {
@@ -749,17 +782,20 @@ function findPreviousSibling(ast, cursor) {
     for (var i = 0; i < parentNode.body.length; i++) {
         // make node the ith node in the body
         var node = parentNode.body[i];
+        var nodeCursors = getNodeLoc(node);
+        var startCursor = nodeCursors[0];
+        var endCursor = nodeCursors[1];
         // if the node is before the cursor ==> prevSibling
-        if (node.loc.end.line < cursor.lineNumber) {
+        if (endCursor.lineNumber < cursor.lineNumber) {
             prevSibling = node;
             // if node is same line as cursor
-        } else if (node.loc.end.line === cursor.lineNumber) {
+        } else if (endCursor.lineNumber === cursor.lineNumber) {
             // check if node ends before or at cursor
-            if (node.loc.end.column <= cursor.column) {
+            if (endCursor.column <= cursor.column) {
                 prevSibling = node;
             }
             // if node starts on line after cursor ==> break
-        } else if (node.loc.start.line > cursor.lineNumber) {
+        } else if (startCursor.lineNumber > cursor.lineNumber) {
             break;
         }
     }
@@ -778,8 +814,10 @@ function cursorAtEndOfBlock(ast, cursor, nodeTypes) {
     var endOfBlock = false;
     estraverse.traverse(ast.program, {
         enter: function (node) {
+            var nodeCursors = getNodeLoc(node);
+            var endCursor = nodeCursors[1];
             if (nodeTypes.includes(node.type) &&
-                cursor.lineNumber === node.loc.end.line && cursor.column === node.loc.end.column) {
+                cursor.lineNumber === endCursor.lineNumber && cursor.column === endCursor.column) {
                 endOfBlock = true;
             }
         }
@@ -799,8 +837,10 @@ function cursorAtStartOfBlock(ast, cursor, nodeTypes) {
     var begOfBlock = false;
     estraverse.traverse(ast.program, {
         enter: function (node) {
+            var nodeCursors = getNodeLoc(node);
+            var startCursor = nodeCursors[0];
             if (nodeTypes.includes(node.type) &&
-                cursor.lineNumber === node.loc.start.line && cursor.column === node.loc.start.column) {
+                cursor.lineNumber === startCursor.lineNumber && cursor.column === startCursor.column) {
                 begOfBlock = true;
             }
         }

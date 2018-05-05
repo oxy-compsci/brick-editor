@@ -37,7 +37,7 @@ function onPointInsert() {
         // if cursor is where editor became unparsable
         var cursor = getCursor();
         var buffer = editor.getValue();
-        if (cursor.lineNumber == editorState.cursor.lineNumber) {
+        if (cursor.lineNumber === editorState.cursor.lineNumber) {
             // if cursor was inside parentheses
             if (editorState.openParenthesis && editorState.closeParenthesis) {
                 // add one column position to editorState.parentheses because character was added but not accounted for
@@ -89,10 +89,10 @@ function onPointBackspace() {
         } else {
             charBackspaceBranch(buffer, cursor);
         }
-    } else if (cursor.lineNumber == editorState.cursor.lineNumber) { // if unparsable but on same line
+    } else if (cursor.lineNumber === editorState.cursor.lineNumber) { // if unparsable but on same line
         // if cursor was inside () at last parsable state
         if (editorState.openParenthesis && editorState.closeParenthesis) {
-            if (positionFromStart(buffer, cursor) - 1 == editorState.openParenthesis) {
+            if (positionFromStart(buffer, cursor) - 1 === editorState.openParenthesis) {
                 // ignore backspace if directly to the right of (
                 flash();
             } else if (positionFromStart(buffer, cursor) <= editorState.openParenthesis || positionFromEnd(buffer, cursor) <= editorState.closeParenthesis) {
@@ -143,10 +143,10 @@ function onPointDelete() {
         } else {
             charDeleteBranch(buffer, cursor);
         }
-    } else if (cursor.lineNumber == editorState.cursor.lineNumber) { // if unparsable but on same line
+    } else if (cursor.lineNumber === editorState.cursor.lineNumber) { // if unparsable but on same line
         // if inside parentheses when became unparsable 
         if (editorState.openParenthesis && editorState.closeParenthesis) {
-            if (positionFromEnd(buffer, cursor) - 1 == editorState.closeParenthesis) { // if directly to left of ) 
+            if (positionFromEnd(buffer, cursor) - 1 === editorState.closeParenthesis) { // if directly to left of ) 
                 // ignore delete if parenthesis
                 flash();
             } else if (positionFromStart(buffer, cursor) <= editorState.openParenthesis || positionFromEnd(buffer, cursor) <= editorState.closeParenthesis) { // if left of ( or right of )
@@ -245,7 +245,7 @@ function updateEditorState() {
     } else { 
         editorState.parsable = false;
         // if on same line
-        if (cursor.lineNumber == editorState.cursor.lineNumber) {
+        if (cursor.lineNumber === editorState.cursor.lineNumber) {
             if (editorState.parentheses) {
                 if (highlightedParen) {
                     unhighlightParen();

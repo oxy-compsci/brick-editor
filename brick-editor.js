@@ -19,113 +19,11 @@ var condDecorations = null;
 var highlighted = false;
 var highlightedParen = false;
 
-// USER INTERFACE CODE
-
-/**
- * Add the HTML blocks to the button container
+/*********************************************
  *
- * @returns {undefined}
- */
-function addBlocksHTML() { // eslint-disable-line no-unused-vars
-    for (var i = 0; i < blockDict.length; i++) {
-        var HTMLfunction = "buttonHandler('" + i + "')";
-
-        // creates button and sets all attributes
-        var block = document.createElement("button");
-        block.setAttribute("type", "button");
-        block.setAttribute("class", "addBlockButton");
-        block.appendChild(document.createTextNode(blockDict[i].blockName));
-        block.setAttribute("style", "background-color:" + blockDict[i].buttonColor);
-        block.setAttribute("onclick", HTMLfunction);
-
-        // adds the new button inside the buttonContainer class at end
-        var buttonContainer = document.getElementById("buttonContainer");
-        buttonContainer.appendChild(block);
-
-        // adds a break element to make a column of blocks
-        buttonContainer.appendChild(document.createElement("br"));
-    }
-}
-
-// EVENT HANDLERS
-
-/**
- * Called when backspace key is pressed
+ * SECTION: HIGH-LEVEL EVENTS
  *
- * @returns {undefined}
- */
-function backspaceHandler() { // eslint-disable-line no-unused-vars
-    if (getSelected()) {
-        onRangeDelete();
-    } else {
-        onPointBackspace();
-    }
-}
-
-/**
- * Called when delete key is pressed
- *
- * @returns {undefined}
- */
-function deleteHandler() { // eslint-disable-line no-unused-vars
-    if (getSelected()) {
-        onRangeDelete();
-    } else {
-        onPointDelete();
-    }
-}
-
-/**
- * Handle button clicks
- *
- * @param {number} i - Index of code in dictionary
- * @returns {undefined}
- */
-function buttonHandler(i) { // eslint-disable-line no-unused-vars
-    var template = blockDict[i].code;
-    var ast = attemptParse(editor.getValue());
-    var cursor = getCursor();
-
-    // add block to buffer string and update editor
-    var new_text = addBlock(template, ast, cursor);
-    ast = attemptParse(new_text);
-    setValue(recast.print(ast).code);
-
-    // update cursor position
-    setCursor(cursor);
-}
-
-/**
- * Backspace a character
- *
- * @param {string} buffer - A string of text from the editor.
- * @param {Cursor} cursor - The line and column of the cursor
- * @returns {undefined}
- */
-function charBackspaceBranch(buffer, cursor) {
-    setValue(backspaceChar(buffer, cursor));
-    if (cursor.column === 0) {
-        cursor.lineNumber -= 1;
-        cursor.column = Infinity;
-    } else {
-        cursor.column = cursor.column - 1;
-    }
-    setCursor(cursor);
-}
-
-/**
- * Delete a character
- *
- * @param {string} buffer - A string of text from the editor.
- * @param {Cursor} cursor - The line and column of the cursor
- * @returns {undefined}
- */
-function charDeleteBranch(buffer, cursor) {
-    setValue(deleteChar(buffer, cursor));
-    setCursor(cursor);
-}
-
-// EDITING HANDLERS
+ *********************************************/
 
 /**
  * Handler for any text on a cursor.
@@ -292,18 +190,69 @@ function onRangeDelete() {
     updateEditorState();
 }
 
-/** 
- * Set value of editor using executeEdits to preserve undo stack
+/*********************************************
  *
- * @param {string} newBuffer - String replacing oldBuffer.
+ * SECTION: EDITOR STATE
+ *
+ *********************************************/
+
+/**
+ * Update the editor state.
+ *
  * @returns {undefined}
-*/
-function setValue(newBuffer) {
-    // get range of editor model 
-    var range = editor.getModel().getFullModelRange();
-    // call execute edits on the editor 
-    editor.executeEdits(editor.getValue(), [{ identifier: "insert", range: range, text: newBuffer }]);
+ */
+function updateEditorState() {
+    var buffer = editor.getValue();
+    var ast = attemptParse(buffer);
+    var cursor = getCursor();
+    if (ast) {
+        if (highlightedParen) {
+            unhighlightParen();
+        }
+        editorState.parsable = true;
+        editorState.parse = ast;
+        editorState.parsableText = buffer;
+        document.getElementById("parseButton").disabled = true;
+        // save positions of parentheses
+        var parentheses = getSurroundingProtectedParen(buffer, ast, cursor);
+        editorState.parentheses = parentheses;
+        if (parentheses) {
+            editorState.openParenthesis = positionFromStart(buffer, parentheses[0]);
+            editorState.closeParenthesis = positionFromEnd(buffer, parentheses[1]);
+        } else {
+            editorState.openParenthesis = null;
+            editorState.closeParenthesis = null;
+        }
+        var selected = getSelected();
+        if (selected) {
+            editorState.hasSelected = true;
+            editorState.cursor = selected;
+            editorState.sections = splitAtCursors(buffer, selected);
+        } else {
+            editorState.hasSelected = false;
+            editorState.cursor = getCursor();
+            editorState.sections = splitAtCursors(buffer, [editorState.cursor]);
+        }
+    } else { 
+        editorState.parsable = false;
+        // if on same line
+        if (cursor.lineNumber == editorState.cursor.lineNumber) {
+            if (editorState.parentheses) {
+                if (highlightedParen) {
+                    unhighlightParen();
+                }
+                highlightParen(editorState.parentheses);
+            }
+        }
+        document.getElementById("parseButton").disabled = false;
+    }
 }
+
+/*********************************************
+ *
+ * SECTION: HIGH-LEVEL ACTIONS
+ *
+ *********************************************/
 
 /** 
  * Resets the buffer value to the last correct parsed state
@@ -314,70 +263,82 @@ function resetToParsed() { // eslint-disable-line no-unused-vars
     setValue(editorState.parsableText);
 } 
 
-
-// EDITOR INTERFACE CODE
-
 /**
- * Make a Cursor object.
+ * Delete selected text
  *
- * @param {int} line - The line number.
- * @param {int} col - The column number.
- * @returns {Cursor} - The Cursor object.
+ * @param {AST} ast - The root of the ast to delete from.
+ * @param {[Cursor]} selection - List of start and end Cursors.
+ * @returns {string} buffer
  */
-function makeCursor(line, col) {
-    if (line < 1) {
-        throw "line must be a positive integer, but got " + col;
-    }
-    return { "lineNumber": line, "column": col };
-}
-
-/**
- * Get the cursor in the editor.
- *
- * Note monaco line number starts at 0, while recast line number starts at 1.
- * The result of this function, and all functions here, follow the recast
- * numbering.
- *
- * @returns {Cursor} - The line and column of the cursor in the editor.
- */
-function getCursor() {
-    var cursor = editor.getPosition();
-    cursor.column = cursor.column - 1;
-    return cursor;
-}
-
-/**
- * Get the cursor in the editor.
- *
- * Note monaco line number starts at 0, while recast line number starts at 1.
- * The input of this function follows the recast numbering.
- *
- * @param {Cursor} cursor - The line and column of the cursor.
- * @returns {undefined}
- */
-function setCursor(cursor) {
-    cursor.column = cursor.column + 1;
-    editor.setPosition(cursor);
-}
-
-/**
- * Returns position of selection if selection exists.
- *
- * @returns {[Cursor]} - A list of two Cursors defining the selection.
- */
-function getSelected() {
-    var selectionObject = editor.getSelection();
-    var selection = [
-        makeCursor(selectionObject.startLineNumber, selectionObject.startColumn - 1),
-        makeCursor(selectionObject.endLineNumber, selectionObject.endColumn - 1),
-    ];
-    if (selection[0].lineNumber !== selection[1].lineNumber
-        || selection[0].column !== selection[1].column) {
-        return selection;
+function deleteSelected(ast, selection) {
+    var node = null;
+    if (findClosestDeletableBlock(ast, selection[0]) === findClosestDeletableBlock(ast, selection[1])) {
+        node = findClosestDeletableBlock(ast, selection[0]);
     } else {
-        return null;
+        node = findClosestCommonDeletableBlock(ast, selection, BLOCK_DELETE_TYPES);
     }
+    return node;
 }
+
+/**
+ * Delete a node
+ *
+ * @param {AST} ast - The parsed text.
+ * @param {node} node - The node to delete.
+ * @returns {string} Text with block removed
+ */
+function deleteBlock(ast, node) {
+    estraverse.replace(ast.program, {
+        leave: function (currentNode) {
+            if (currentNode === node) {
+                this.remove();
+            }
+        }
+    });
+    return recast.print(ast).code;
+}
+
+/**
+ * Backspace a character
+ *
+ * @param {string} buffer - A string of text from the editor.
+ * @param {Cursor} cursor - A lineNumber and column object.
+ * @returns {string} Updated buffer text
+ */
+function backspaceChar(buffer, cursor) {
+    var beginCursor = makeCursor(cursor.lineNumber, cursor.column - 1);
+    var sections = splitAtCursors(buffer, [beginCursor, cursor]);
+    return [sections[0], sections[2]].join("");
+}
+
+/**
+ * Delete a character
+ *
+ * @param {string} buffer - A string of text from the editor.
+ * @param {Cursor} cursor - A lineNumber and column object.
+ * @returns {string} Updated buffer text
+ */
+function deleteChar(buffer, cursor) {
+    var endCursor = makeCursor(cursor.lineNumber, cursor.column + 1);
+    var sections = splitAtCursors(buffer, [cursor, endCursor]);
+    return [sections[0], sections[2]].join("");
+}
+
+/*********************************************
+ *
+ * SECTION: HIGH-LEVEL UI
+ *
+ *********************************************/
+
+/** 
+ * Flashes the editor background for 100 ms 
+ * 
+ * @returns {undefined} 
+ */
+function flash() {
+    monaco.editor.setTheme("flash");
+    setTimeout(function () { monaco.editor.setTheme("normal"); }, 100);
+} 
 
 /**
  * Highlights editor text based on start/end lineNumbers and start/end columns
@@ -407,17 +368,6 @@ function unhighlight() {
     decorations = editor.deltaDecorations(decorations, []);
     highlighted = false;
 }
-
-/** 
- * Flashes the editor background for 100 ms 
- * 
- * @returns {undefined} 
- */
-function flash() {
-    monaco.editor.setTheme("flash");
-    setTimeout(function () { monaco.editor.setTheme("normal"); }, 100);
-
-} 
 
 /**
  * Highlights from opening parenthesis to closed parenthesis, inclusive
@@ -449,7 +399,228 @@ function unhighlightParen() {
     highlightedParen = false;
 }
 
-// TEXT EDITING CODE
+/*********************************************
+ *
+ * SECTION: LOW-LEVEL EVENTS
+ *
+ *********************************************/
+
+/**
+ * Called when backspace key is pressed
+ *
+ * @returns {undefined}
+ */
+function backspaceHandler() { // eslint-disable-line no-unused-vars
+    if (getSelected()) {
+        onRangeDelete();
+    } else {
+        onPointBackspace();
+    }
+}
+
+/**
+ * Called when delete key is pressed
+ *
+ * @returns {undefined}
+ */
+function deleteHandler() { // eslint-disable-line no-unused-vars
+    if (getSelected()) {
+        onRangeDelete();
+    } else {
+        onPointDelete();
+    }
+}
+
+/**
+ * Callback function whenever the cursor moves.
+ *
+ * @param {Event} e - the cursor movement event.
+ * @returns {undefined}
+ */
+function onDidChangeCursorSelection(e) { // eslint-disable-line no-unused-vars
+
+    /*
+    console.log("ondidchangecursorselection");
+    console.log("    source:", e.source);
+    console.log("    reason:", e.reason);
+    var selection = e.selection;
+    console.log("    [" +
+        selection.startLineNumber
+        + ":" + 
+        selection.startColumn
+        + ", " + 
+        selection.endLineNumber
+        + ":" + 
+        selection.endColumn
+        + "]"
+    );
+    */
+    if (highlighted) {
+        unhighlight();
+    }
+    if (e.source === "mouse") {
+        updateEditorState();
+    } else if (e.source === "keyboard") {
+        if (e.reason === 4) { // pasted
+            if (editorState.hasSelected) {
+                onRangeReplace();
+            } else {
+                onPointInsert();
+            }
+        } else if (e.reason === 3) { // arrow key movement
+            updateEditorState();
+        } else if (e.reason === 0) { // cut or type
+            if (!editorState.hasSelected) { // typed at cursor
+                onPointInsert();
+            } else {
+                var sections = splitAtCursors(editorState.parsableText, editorState.cursor);
+                if (editor.getValue().length > sections[0].length + sections[2].length) {
+                    onRangeReplace(); // typed over range
+                } else {
+                    onRangeDelete(); // cut
+                }
+            }
+        }
+    }
+}
+
+/*********************************************
+ *
+ * SECTION: LOW-LEVEL ACTIONS
+ *
+ *********************************************/
+
+/**
+ * Backspace a character
+ *
+ * @param {string} buffer - A string of text from the editor.
+ * @param {Cursor} cursor - The line and column of the cursor
+ * @returns {undefined}
+ */
+function charBackspaceBranch(buffer, cursor) {
+    setValue(backspaceChar(buffer, cursor));
+    if (cursor.column === 0) {
+        cursor.lineNumber -= 1;
+        cursor.column = Infinity;
+    } else {
+        cursor.column = cursor.column - 1;
+    }
+    setCursor(cursor);
+}
+
+/**
+ * Delete a character
+ *
+ * @param {string} buffer - A string of text from the editor.
+ * @param {Cursor} cursor - The line and column of the cursor
+ * @returns {undefined}
+ */
+function charDeleteBranch(buffer, cursor) {
+    setValue(deleteChar(buffer, cursor));
+    setCursor(cursor);
+}
+
+/*********************************************
+ *
+ * SECTION: BUTTONS
+ *
+ *********************************************/
+
+/**
+ * Add the HTML blocks to the button container
+ *
+ * @returns {undefined}
+ */
+function addBlocksHTML() { // eslint-disable-line no-unused-vars
+    for (var i = 0; i < blockDict.length; i++) {
+        var HTMLfunction = "buttonHandler('" + i + "')";
+
+        // creates button and sets all attributes
+        var block = document.createElement("button");
+        block.setAttribute("type", "button");
+        block.setAttribute("class", "addBlockButton");
+        block.appendChild(document.createTextNode(blockDict[i].blockName));
+        block.setAttribute("style", "background-color:" + blockDict[i].buttonColor);
+        block.setAttribute("onclick", HTMLfunction);
+
+        // adds the new button inside the buttonContainer class at end
+        var buttonContainer = document.getElementById("buttonContainer");
+        buttonContainer.appendChild(block);
+
+        // adds a break element to make a column of blocks
+        buttonContainer.appendChild(document.createElement("br"));
+    }
+}
+
+/**
+ * Handle button clicks
+ *
+ * @param {number} i - Index of code in dictionary
+ * @returns {undefined}
+ */
+function buttonHandler(i) { // eslint-disable-line no-unused-vars
+    var template = blockDict[i].code;
+    var ast = attemptParse(editor.getValue());
+    var cursor = getCursor();
+
+    // add block to buffer string and update editor
+    var new_text = addBlock(template, ast, cursor);
+    ast = attemptParse(new_text);
+    setValue(recast.print(ast).code);
+
+    // update cursor position
+    setCursor(cursor);
+}
+
+/**
+ * Add a block based on button keyword
+ *
+ * @param {string} template - A string of block of text to add.
+ * @param {AST} ast - Parsed text from the editor.
+ * @param {Cursor} cursor - The line and column of the cursor.
+ * @returns {buffer} Updated text string
+ */
+function addBlock(template, ast, cursor) {
+    var prevSibling = findPreviousSibling(ast, cursor);
+    var parentNode = null;
+    if (prevSibling) {
+        var pos = makeCursor(prevSibling.loc.start.line, prevSibling.loc.start.column);
+        parentNode = findClosestParent(ast, pos, ["BlockStatement", "Program"]);
+    } else {
+        parentNode = findClosestParent(ast, cursor, ["BlockStatement", "Program"]);
+    }
+    // parse template
+    var parsedTemplate = attemptParse(template);
+    // parentNode should be pointer, so just append
+    var index = parentNode.body.indexOf(prevSibling);
+    parentNode.body.splice(index + 1, 0, parsedTemplate.program.body[0]);
+    // update editor state
+    updateEditorState();
+    // return buffer
+    return recast.print(ast).code;
+}
+
+/*********************************************
+ *
+ * SECTION: PARSING
+ *
+ *********************************************/
+
+/**
+ * Attempt to parse JavaScript code.
+ *
+ * @param {string} text - The text to parse.
+ * @returns {AST} - The parsed AST, or null if unparsable.
+ */
+function attemptParse(text) {
+    try {
+        console.log("parse succeeded!"); // eslint-disable-line no-console
+        return recast.parse(text);
+    } catch (e) {
+        console.log("parse failed!"); // eslint-disable-line no-console
+        return null;
+    }
+}
 
 /**
  * Find the closest shared parent between multiple cursors.
@@ -642,100 +813,11 @@ function cursorAtStartOfBlock(ast, cursor) {
     return begOfBlock;
 }
 
-// DELETING FUNCTIONS
-
-/**
- * Delete selected text
+/*********************************************
  *
- * @param {AST} ast - The root of the ast to delete from.
- * @param {[Cursor]} selection - List of start and end Cursors.
- * @returns {string} buffer
- */
-function deleteSelected(ast, selection) {
-    var node = null;
-    if (findClosestDeletableBlock(ast, selection[0]) === findClosestDeletableBlock(ast, selection[1])) {
-        node = findClosestDeletableBlock(ast, selection[0]);
-    } else {
-        node = findClosestCommonDeletableBlock(ast, selection, BLOCK_DELETE_TYPES);
-    }
-    return node;
-}
-
-/**
- * Delete a node
+ * SECTION: TEXT EDITING
  *
- * @param {AST} ast - The parsed text.
- * @param {node} node - The node to delete.
- * @returns {string} Text with block removed
- */
-function deleteBlock(ast, node) {
-    estraverse.replace(ast.program, {
-        leave: function (currentNode) {
-            if (currentNode === node) {
-                this.remove();
-            }
-        }
-    });
-    return recast.print(ast).code;
-}
-
-/**
- * Backspace a character
- *
- * @param {string} buffer - A string of text from the editor.
- * @param {Cursor} cursor - A lineNumber and column object.
- * @returns {string} Updated buffer text
- */
-function backspaceChar(buffer, cursor) {
-    var beginCursor = makeCursor(cursor.lineNumber, cursor.column - 1);
-    var sections = splitAtCursors(buffer, [beginCursor, cursor]);
-    return [sections[0], sections[2]].join("");
-}
-
-/**
- * Delete a character
- *
- * @param {string} buffer - A string of text from the editor.
- * @param {Cursor} cursor - A lineNumber and column object.
- * @returns {string} Updated buffer text
- */
-function deleteChar(buffer, cursor) {
-    var endCursor = makeCursor(cursor.lineNumber, cursor.column + 1);
-    var sections = splitAtCursors(buffer, [cursor, endCursor]);
-    return [sections[0], sections[2]].join("");
-}
-
-// ADDING FUNCTIONS
-
-/**
- * Add a block based on button keyword
- *
- * @param {string} template - A string of block of text to add.
- * @param {AST} ast - Parsed text from the editor.
- * @param {Cursor} cursor - The line and column of the cursor.
- * @returns {buffer} Updated text string
- */
-function addBlock(template, ast, cursor) {
-    var prevSibling = findPreviousSibling(ast, cursor);
-    var parentNode = null;
-    if (prevSibling) {
-        var pos = makeCursor(prevSibling.loc.start.line, prevSibling.loc.start.column);
-        parentNode = findClosestParent(ast, pos, ["BlockStatement", "Program"]);
-    } else {
-        parentNode = findClosestParent(ast, cursor, ["BlockStatement", "Program"]);
-    }
-    // parse template
-    var parsedTemplate = attemptParse(template);
-    // parentNode should be pointer, so just append
-    var index = parentNode.body.indexOf(prevSibling);
-    parentNode.body.splice(index + 1, 0, parsedTemplate.program.body[0]);
-    // update editor state
-    updateEditorState();
-    // return buffer
-    return recast.print(ast).code;
-}
-
-// BUFFER MANIPULATION FUNCTIONS
+ *********************************************/
 
 /**
  * Test if a cursor is between two others, exclusive.
@@ -948,126 +1030,6 @@ function splitAtCursors(buffer, cursors) {
 }
 
 /**
- * Callback function whenever the cursor moves.
- *
- * @param {Event} e - the cursor movement event.
- * @returns {undefined}
- */
-function onDidChangeCursorSelection(e) { // eslint-disable-line no-unused-vars
-
-    /*
-    console.log("ondidchangecursorselection");
-    console.log("    source:", e.source);
-    console.log("    reason:", e.reason);
-    var selection = e.selection;
-    console.log("    [" +
-        selection.startLineNumber
-        + ":" + 
-        selection.startColumn
-        + ", " + 
-        selection.endLineNumber
-        + ":" + 
-        selection.endColumn
-        + "]"
-    );
-    */
-    if (highlighted) {
-        unhighlight();
-    }
-    if (e.source === "mouse") {
-        updateEditorState();
-    } else if (e.source === "keyboard") {
-        if (e.reason === 4) { // pasted
-            if (editorState.hasSelected) {
-                onRangeReplace();
-            } else {
-                onPointInsert();
-            }
-        } else if (e.reason === 3) { // arrow key movement
-            updateEditorState();
-        } else if (e.reason === 0) { // cut or type
-            if (!editorState.hasSelected) { // typed at cursor
-                onPointInsert();
-            } else {
-                var sections = splitAtCursors(editorState.parsableText, editorState.cursor);
-                if (editor.getValue().length > sections[0].length + sections[2].length) {
-                    onRangeReplace(); // typed over range
-                } else {
-                    onRangeDelete(); // cut
-                }
-            }
-        }
-    }
-}
-
-/**
- * Attempt to parse JavaScript code.
- *
- * @param {string} text - The text to parse.
- * @returns {AST} - The parsed AST, or null if unparsable.
- */
-function attemptParse(text) {
-    try {
-        console.log("parse succeeded!"); // eslint-disable-line no-console
-        return recast.parse(text);
-    } catch (e) {
-        console.log("parse failed!"); // eslint-disable-line no-console
-        return null;
-    }
-}
-
-/**
- * Update the editor state.
- *
- * @returns {undefined}
- */
-function updateEditorState() {
-    var buffer = editor.getValue();
-    var ast = attemptParse(buffer);
-    var cursor = getCursor();
-    if (ast) {
-        if (highlightedParen) {
-            unhighlightParen();
-        }
-        editorState.parsable = true;
-        editorState.parse = ast;
-        editorState.parsableText = buffer;
-        document.getElementById("parseButton").disabled = true;
-        // save positions of parentheses
-        var parentheses = getSurroundingProtectedParen(buffer, ast, cursor);
-        editorState.parentheses = parentheses;
-        if (parentheses) {
-            editorState.openParenthesis = positionFromStart(buffer, parentheses[0]);
-            editorState.closeParenthesis = positionFromEnd(buffer, parentheses[1]);
-        } else {
-            editorState.openParenthesis = null;
-            editorState.closeParenthesis = null;
-        }
-        var selected = getSelected();
-        if (selected) {
-            editorState.hasSelected = true;
-            editorState.cursor = selected;
-            editorState.sections = splitAtCursors(buffer, selected);
-        } else {
-            editorState.hasSelected = false;
-            editorState.cursor = getCursor();
-            editorState.sections = splitAtCursors(buffer, [editorState.cursor]);
-        }
-    } else { 
-        editorState.parsable = false;
-        // if on same line
-        if (cursor.lineNumber == editorState.cursor.lineNumber) {
-            if (editorState.parentheses) {
-                if (highlightedParen) {
-                    unhighlightParen();
-                }
-                highlightParen(editorState.parentheses);
-            }
-        }
-        document.getElementById("parseButton").disabled = false;
-    }
-}
-/**
  * Gets the character position of cursor from beginning of buffer
  *
  * @param {string} buffer - A string of text from the editor.
@@ -1102,6 +1064,99 @@ function positionFromEnd(buffer, cursor) {
 
     return lastPart.join("").length;
 }
+
+/*********************************************
+ *
+ * SECTION: CLASSES
+ *
+ *********************************************/
+
+/**
+ * Make a Cursor object.
+ *
+ * @param {int} line - The line number.
+ * @param {int} col - The column number.
+ * @returns {Cursor} - The Cursor object.
+ */
+function makeCursor(line, col) {
+    if (line < 1) {
+        throw "line must be a positive integer, but got " + col;
+    }
+    return { "lineNumber": line, "column": col };
+}
+
+/*********************************************
+ *
+ * SECTION: EDITOR WRAPPER
+ *
+ *********************************************/
+
+/**
+ * Get the cursor in the editor.
+ *
+ * Note monaco line number starts at 0, while recast line number starts at 1.
+ * The result of this function, and all functions here, follow the recast
+ * numbering.
+ *
+ * @returns {Cursor} - The line and column of the cursor in the editor.
+ */
+function getCursor() {
+    var cursor = editor.getPosition();
+    cursor.column = cursor.column - 1;
+    return cursor;
+}
+
+/**
+ * Get the cursor in the editor.
+ *
+ * Note monaco line number starts at 0, while recast line number starts at 1.
+ * The input of this function follows the recast numbering.
+ *
+ * @param {Cursor} cursor - The line and column of the cursor.
+ * @returns {undefined}
+ */
+function setCursor(cursor) {
+    cursor.column = cursor.column + 1;
+    editor.setPosition(cursor);
+}
+
+/**
+ * Returns position of selection if selection exists.
+ *
+ * @returns {[Cursor]} - A list of two Cursors defining the selection.
+ */
+function getSelected() {
+    var selectionObject = editor.getSelection();
+    var selection = [
+        makeCursor(selectionObject.startLineNumber, selectionObject.startColumn - 1),
+        makeCursor(selectionObject.endLineNumber, selectionObject.endColumn - 1),
+    ];
+    if (selection[0].lineNumber !== selection[1].lineNumber
+        || selection[0].column !== selection[1].column) {
+        return selection;
+    } else {
+        return null;
+    }
+}
+
+/** 
+ * Set value of editor using executeEdits to preserve undo stack
+ *
+ * @param {string} newBuffer - String replacing oldBuffer.
+ * @returns {undefined}
+*/
+function setValue(newBuffer) {
+    // get range of editor model 
+    var range = editor.getModel().getFullModelRange();
+    // call execute edits on the editor 
+    editor.executeEdits(editor.getValue(), [{ identifier: "insert", range: range, text: newBuffer }]);
+}
+
+/*********************************************
+ *
+ * SECTION: EXPORTS
+ *
+ *********************************************/
 
 // Attempt to export the module for testing purposes. If we get a
 // ReferenceError on "module", assume we're running a browser and ignore it.

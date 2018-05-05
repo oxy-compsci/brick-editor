@@ -122,7 +122,7 @@ function onPointDelete() {
         }
         var oneAhead = makeCursor(cursor.lineNumber, cursor.column + 1);
         var ast = attemptParse(buffer);
-        if (cursorAtStartOfBlock(ast, cursor)) {
+        if (cursorAtStartOfBlock(ast, cursor, BLOCK_DELETE_TYPES)) {
             var node = findClosestDeletableBlock(ast, cursor);
             if (highlighted) {
                 setValue(deleteBlock(ast, node));
@@ -792,19 +792,14 @@ function cursorAtEndOfBlock(ast, cursor, nodeTypes) {
  *
  * @param {AST} ast - The root of the ast to search through.
  * @param {Cursor} cursor - A lineNumber and column object.
+ * @param {[string]} nodeTypes - The AST nodes to detect.
  * @returns {boolean} Is cursor at beginning of block?
  */
-function cursorAtStartOfBlock(ast, cursor) {
+function cursorAtStartOfBlock(ast, cursor, nodeTypes) {
     var begOfBlock = false;
     estraverse.traverse(ast.program, {
         enter: function (node) {
-            if ((node.type === "IfStatement" ||
-                node.type === "ForStatement" ||
-                node.type === "FunctionDeclaration" ||
-                node.type === "WhileStatement" ||
-                node.type === "VariableDeclaration" ||
-                node.type === "ExpressionStatement" ||
-                node.type === "ReturnStatement") &&
+            if (nodeTypes.includes(node.type) &&
                 cursor.lineNumber === node.loc.start.line && cursor.column === node.loc.start.column) {
                 begOfBlock = true;
             }

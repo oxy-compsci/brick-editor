@@ -950,14 +950,12 @@ function getSurroundingProtectedParen(buffer, ast, cursor) {
     }
     var line = null;
     var found = null;
-    var col = null;
     // start at the beginning and move forwards to the first open parenthesis
-    var startCursor = closestParent.loc.start;
+    var startCursor = getNodeLoc(closestParent)[0];
     found = false;
-    line = buffer.split("\n")[startCursor.line - 1];
-    for (col = startCursor.column; col <= line.length; col++) {
-        if (line.charAt(col) === "(") {
-            startCursor = makeCursor(startCursor.line, col);
+    line = buffer.split("\n")[startCursor.lineNumber - 1];
+    for (; startCursor.column <= line.length; startCursor.column++) {
+        if (line.charAt(startCursor.column) === "(") {
             found = true;
             break;
         }
@@ -968,15 +966,15 @@ function getSurroundingProtectedParen(buffer, ast, cursor) {
     // start at the brace and move backwards to the first close parenthesis
     var endCursor = null;
     if (closestParent.type === "IfStatement") {
-        endCursor = closestParent.consequent.loc.start;
+        endCursor = getNodeLoc(closestParent.consequent)[0];
     } else {
-        endCursor = closestParent.body.loc.start;
+        endCursor = getNodeLoc(closestParent.body)[0];
     }
     found = false;
-    line = buffer.split("\n")[endCursor.line - 1];
-    for (col = endCursor.column; col >= 0; col--) {
-        if (line.charAt(col) === ")") {
-            endCursor = makeCursor(endCursor.line, col + 1);
+    line = buffer.split("\n")[endCursor.lineNumber - 1];
+    //for (col = endCursor.column; col >= 0; col--) {
+    for (; endCursor.column >= 0; endCursor.column--) {
+        if (line.charAt(endCursor.column - 1) === ")") {
             found = true;
             break;
         }

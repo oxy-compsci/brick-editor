@@ -329,11 +329,11 @@ function cursorInEditableRegion(cursor) {
  **************************************/
 
 /** 
- * Resets the buffer value to the last correct parsed state
+ * Revert the buffer value to the last parsable state
  *
  * @returns {undefined}
  */
-function resetToParsed() { // eslint-disable-line no-unused-vars
+function revertToParsed() { // eslint-disable-line no-unused-vars
     setValue(editorState.parsableText);
     unhighlight();
     makeAllEditable();

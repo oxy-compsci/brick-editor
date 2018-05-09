@@ -88,7 +88,7 @@ function onPointBackspace() {
             // flash editor screen 
             flash(); 
         } else {
-            charBackspaceBranch(buffer, cursor);
+            doCursorBackspace(buffer, cursor);
         }
     } else if (cursor.lineNumber === editorState.cursor.lineNumber) { // if unparsable but on same line
         // if cursor was inside () at last parsable state
@@ -102,10 +102,10 @@ function onPointBackspace() {
             } else {
                 // update highlighting range
                 editorState.parentheses[1].column = editorState.parentheses[1].column - 1;
-                charBackspaceBranch(buffer, cursor);
+                doCursorBackspace(buffer, cursor);
             }
         } else {
-            charBackspaceBranch(buffer, cursor);
+            doCursorBackspace(buffer, cursor);
         }
     }
     updateEditorState();
@@ -142,7 +142,7 @@ function onPointDelete() {
             // flash editor screen 
             flash(); 
         } else {
-            charDeleteBranch(buffer, cursor);
+            doCursorDelete(buffer, cursor);
         }
     } else if (cursor.lineNumber === editorState.cursor.lineNumber) { // if unparsable but on same line
         // if inside parentheses when became unparsable 
@@ -156,10 +156,10 @@ function onPointDelete() {
             } else {
                 // update highlighting range
                 editorState.parentheses[1].column = editorState.parentheses[1].column - 1;
-                charDeleteBranch(buffer, cursor);
+                doCursorDelete(buffer, cursor);
             }
         } else {
-            charDeleteBranch(buffer, cursor);
+            doCursorDelete(buffer, cursor);
         }
     }
     updateEditorState();
@@ -309,32 +309,6 @@ function deleteBlock(ast, node) {
         }
     });
     return recast.print(ast).code;
-}
-
-/**
- * Backspace a character
- *
- * @param {string} buffer - A string of text from the editor.
- * @param {Cursor} cursor - A lineNumber and column object.
- * @returns {string} Updated buffer text
- */
-function backspaceChar(buffer, cursor) {
-    var beginCursor = makeCursor(cursor.lineNumber, cursor.column - 1);
-    var sections = splitAtCursors(buffer, [beginCursor, cursor]);
-    return [sections[0], sections[2]].join("");
-}
-
-/**
- * Delete a character
- *
- * @param {string} buffer - A string of text from the editor.
- * @param {Cursor} cursor - A lineNumber and column object.
- * @returns {string} Updated buffer text
- */
-function deleteChar(buffer, cursor) {
-    var endCursor = makeCursor(cursor.lineNumber, cursor.column + 1);
-    var sections = splitAtCursors(buffer, [cursor, endCursor]);
-    return [sections[0], sections[2]].join("");
 }
 
 /*********************************************
@@ -506,8 +480,10 @@ function onDidChangeCursorSelection(e) { // eslint-disable-line no-unused-vars
  * @param {Cursor} cursor - The line and column of the cursor
  * @returns {undefined}
  */
-function charBackspaceBranch(buffer, cursor) {
-    setValue(backspaceChar(buffer, cursor));
+function doCursorBackspace(buffer, cursor) {
+    var beginCursor = makeCursor(cursor.lineNumber, cursor.column - 1);
+    var sections = splitAtCursors(buffer, [beginCursor, cursor]);
+    setValue([sections[0], sections[2]].join(""));
     if (cursor.column === 0) {
         cursor.lineNumber -= 1;
         cursor.column = Infinity;
@@ -524,8 +500,10 @@ function charBackspaceBranch(buffer, cursor) {
  * @param {Cursor} cursor - The line and column of the cursor
  * @returns {undefined}
  */
-function charDeleteBranch(buffer, cursor) {
-    setValue(deleteChar(buffer, cursor));
+function doCursorDelete(buffer, cursor) {
+    var endCursor = makeCursor(cursor.lineNumber, cursor.column + 1);
+    var sections = splitAtCursors(buffer, [cursor, endCursor]);
+    setValue([sections[0], sections[2]].join(""));
     setCursor(cursor);
 }
 

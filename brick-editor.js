@@ -33,25 +33,32 @@ var highlightedEditable = false;
  */
 function onCursorType() {
     console.log("onCursorType");
-    // update the editable region if the new character is on the end line
     var index = findCursorEditableRegionIndex(editorState.cursor);
-    if (index !== null) {
-        var editableRegion = editorState.editableRegions[index];
-        if (editableRegion[0].lineNumber === editableRegion[1].lineNumber) {
-            adjustEditableRegion(index, 0, 0, 0, 1);
-        }
-    }
-    if (!cursorInEditableRegion(editorState.cursor)) {
+    // if the new character is not in an editable region, revert it
+    if (index === null) {
         revertAction();
     } else {
-        // check parsability changes
-        var wasParsable = editorState.parsable;
+        // check parsability changes due to the new character
         var ast = attemptParse(editor.getValue());
-        if (wasParsable && !ast) {
+        if (editorState.parsable) {
+            if (!ast) {
             setSingleLineEditableRegion(1);
-        } else if (!wasParsable && ast) {
+            }
+        } else {
+            if (ast) {
             makeAllEditable();
-        } else if (!wasParsable && !ast) {
+            } else {
+                var editableRegion = editorState.editableRegions[0];
+            // update the editable region if the new character is on the end line
+                var lineDiff = editor.getValue().split("\n").length - editorState.text.split("\n").length;
+                if (lineDiff) {
+                    var line = getLine(editor.getValue(), editableRegion[1].lineNumber + lineDiff - 1);
+                    var columnDiff = line.length - editableRegion[1].column;
+                    adjustEditableRegion(0, 0, 0, lineDiff, columnDiff);
+                } else if (editorState.cursor.lineNumber === editableRegion[1].lineNumber) {
+                    adjustEditableRegion(0, 0, 0, 0, 1);
+                }
+            }
         }
     }
     updateEditorState();

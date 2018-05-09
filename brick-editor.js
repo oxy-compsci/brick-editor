@@ -529,10 +529,8 @@ function addBlock(template, ast, cursor) {
  */
 function attemptParse(text) {
     try {
-        console.log("parse succeeded!"); // eslint-disable-line no-console
         return recast.parse(text);
     } catch (e) {
-        console.log("parse failed!"); // eslint-disable-line no-console
         return null;
     }
 }

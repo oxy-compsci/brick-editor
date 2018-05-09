@@ -156,6 +156,20 @@ function updateEditorState() {
     var buffer = editor.getValue();
     var ast = attemptParse(buffer);
     var cursor = getCursor();
+
+    // general editor state
+    editorState.text = buffer;
+    var selected = getSelected();
+    if (selected) {
+        editorState.hasSelected = true;
+        editorState.cursor = selected;
+        editorState.sections = splitAtCursors(buffer, selected);
+    } else {
+        editorState.hasSelected = false;
+        editorState.cursor = getCursor();
+        editorState.sections = splitAtCursors(buffer, [editorState.cursor]);
+    }
+
     if (ast) {
         if (highlightedParen) {
             unhighlight();
@@ -173,16 +187,6 @@ function updateEditorState() {
         } else {
             editorState.openParenthesis = null;
             editorState.closeParenthesis = null;
-        }
-        var selected = getSelected();
-        if (selected) {
-            editorState.hasSelected = true;
-            editorState.cursor = selected;
-            editorState.sections = splitAtCursors(buffer, selected);
-        } else {
-            editorState.hasSelected = false;
-            editorState.cursor = getCursor();
-            editorState.sections = splitAtCursors(buffer, [editorState.cursor]);
         }
     } else { 
         editorState.parsable = false;

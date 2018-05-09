@@ -15,8 +15,8 @@ var BLOCK_DELETE_TYPES = [
 var recast = require("recast");
 var estraverse = require("estraverse");
 var decorations = [];
-var highlighted = false;
-var highlightedParen = false;
+var highlightedPreDelete = false;
+var highlightedEditable = false;
 
 /*********************************************
  *
@@ -171,7 +171,7 @@ function updateEditorState() {
     }
 
     if (ast) {
-        if (highlightedParen) {
+        if (highlightedEditable) {
             unhighlight();
         }
         editorState.parsable = true;
@@ -193,12 +193,12 @@ function updateEditorState() {
         // if on same line
         if (cursor.lineNumber === editorState.cursor.lineNumber) {
             if (editorState.parentheses) {
-                if (highlightedParen) {
+                if (highlightedEditable) {
                     unhighlight();
                 }
                 var startCursor = editorState.parentheses[0];
                 var endCursor = editorState.parentheses[1];
-                highlightParen(startCursor, endCursor);
+                highlightEditable(startCursor, endCursor);
             }
         }
         document.getElementById("parseButton").disabled = false;
@@ -279,9 +279,9 @@ function flash() {
  * @param {Cursor} endCursor - The end of the range
  * @returns {undefined}
  */
-function highlightBlock(startCursor, endCursor) {
-    highlight(startCursor, endCursor, "highlight");
-    highlighted = true;
+function highlightPreDelete(startCursor, endCursor) {
+    highlight(startCursor, endCursor, "predelete-highlight");
+    highlightedPreDelete = true;
 }
 
 /**
@@ -291,9 +291,9 @@ function highlightBlock(startCursor, endCursor) {
  * @param {Cursor} endCursor - The end of the range
  * @returns {undefined}
  */
-function highlightParen(startCursor, endCursor) {
-    highlight(startCursor, endCursor, "conditionalHighlight");
-    highlightedParen = true;
+function highlightEditable(startCursor, endCursor) {
+    highlight(startCursor, endCursor, "editable-highlight");
+    highlightedEditable = true;
 }
 
 /**
@@ -322,8 +322,8 @@ function highlight(startCursor, endCursor, cssClass) {
  */
 function unhighlight() {
     decorations = editor.deltaDecorations(decorations, []);
-    highlighted = false;
-    highlightedParen = false;
+    highlightedPreDelete = false;
+    highlightedEditable = false;
 }
 
 /*********************************************
@@ -365,7 +365,7 @@ function deleteHandler() { // eslint-disable-line no-unused-vars
  * @returns {undefined}
  */
 function onDidChangeCursorSelection(e) { // eslint-disable-line no-unused-vars
-    if (highlighted) {
+    if (highlightedPreDelete) {
         unhighlight();
     }
     if (e.source === "mouse") {

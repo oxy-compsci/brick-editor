@@ -1023,6 +1023,16 @@ function makeCursor(line, col) {
     return { "lineNumber": line, "column": col };
 }
 
+/**
+ * Copy a Cursor object.
+ *
+ * @param {Cursor} cursor - The Cursor object.
+ * @returns {Cursor} - The cloned Cursor object.
+ */
+function copyCursor(cursor) {
+    return makeCursor(cursor.lineNumber, cursor.column);
+}
+
 /*********************************************
  *
  * SECTION: EDITOR WRAPPER

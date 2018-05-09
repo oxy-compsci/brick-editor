@@ -18,11 +18,11 @@ var decorations = [];
 var highlightedPreDelete = false;
 var highlightedEditable = false;
 
-/*********************************************
+/**************************************
  *
  * SECTION: HIGH-LEVEL EVENTS
  *
- *********************************************/
+ **************************************/
 
 /**
  * Handle any typing at the cursor.
@@ -141,11 +141,11 @@ function onSelectionPaste() {
  */
 function onMouseDrag() {}
 
-/*********************************************
+/**************************************
  *
  * SECTION: EDITOR STATE
  *
- *********************************************/
+ **************************************/
 
 /**
  * Update the editor state.
@@ -205,11 +205,11 @@ function updateEditorState() {
     }
 }
 
-/*********************************************
+/**************************************
  *
  * SECTION: HIGH-LEVEL ACTIONS
  *
- *********************************************/
+ **************************************/
 
 /** 
  * Resets the buffer value to the last correct parsed state
@@ -256,11 +256,11 @@ function deleteBlock(ast, node) {
     return recast.print(ast).code;
 }
 
-/*********************************************
+/**************************************
  *
  * SECTION: HIGH-LEVEL UI
  *
- *********************************************/
+ **************************************/
 
 /** 
  * Flashes the editor background for 100 ms 
@@ -326,11 +326,11 @@ function unhighlight() {
     highlightedEditable = false;
 }
 
-/*********************************************
+/**************************************
  *
  * SECTION: LOW-LEVEL EVENTS
  *
- *********************************************/
+ **************************************/
 
 /**
  * Called when backspace key is pressed
@@ -395,11 +395,11 @@ function onDidChangeCursorSelection(e) { // eslint-disable-line no-unused-vars
     }
 }
 
-/*********************************************
+/**************************************
  *
  * SECTION: LOW-LEVEL ACTIONS
  *
- *********************************************/
+ **************************************/
 
 /**
  * Backspace a character
@@ -435,11 +435,11 @@ function doCursorDelete(buffer, cursor) {
     setCursor(cursor);
 }
 
-/*********************************************
+/**************************************
  *
  * SECTION: BUTTONS
  *
- *********************************************/
+ **************************************/
 
 /**
  * Add the HTML blocks to the button container
@@ -515,11 +515,11 @@ function addBlock(template, ast, cursor) {
     return recast.print(ast).code;
 }
 
-/*********************************************
+/**************************************
  *
  * SECTION: PARSING
  *
- *********************************************/
+ **************************************/
 
 /**
  * Attempt to parse JavaScript code.
@@ -752,11 +752,11 @@ function cursorAtStartOfBlock(ast, cursor, nodeTypes) {
     return begOfBlock;
 }
 
-/*********************************************
+/**************************************
  *
  * SECTION: TEXT EDITING
  *
- *********************************************/
+ **************************************/
 
 /**
  * Test if a cursor is between two others, exclusive.
@@ -1002,11 +1002,11 @@ function positionFromEnd(buffer, cursor) {
     return lastPart.join("").length;
 }
 
-/*********************************************
+/**************************************
  *
  * SECTION: CLASSES
  *
- *********************************************/
+ **************************************/
 
 /**
  * Make a Cursor object.
@@ -1032,11 +1032,11 @@ function copyCursor(cursor) {
     return makeCursor(cursor.lineNumber, cursor.column);
 }
 
-/*********************************************
+/**************************************
  *
  * SECTION: EDITOR WRAPPER
  *
- *********************************************/
+ **************************************/
 
 /**
  * Get the cursor in the editor.
@@ -1099,11 +1099,11 @@ function setValue(newBuffer) {
     editor.executeEdits(editor.getValue(), [{ identifier: "insert", range: range, text: newBuffer }]);
 }
 
-/*********************************************
+/**************************************
  *
  * SECTION: EXPORTS
  *
- *********************************************/
+ **************************************/
 
 // Attempt to export the module for testing purposes. If we get a
 // ReferenceError on "module", assume we're running a browser and ignore it.

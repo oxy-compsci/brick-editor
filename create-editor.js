@@ -84,4 +84,6 @@ require(["vs/editor/editor.main"], function () {
     editor.addCommand(monaco.KeyCode.Backspace, backspaceHandler);
     editor.addCommand(monaco.KeyCode.Delete, deleteHandler);
     editor.onDidChangeCursorSelection(onDidChangeCursorSelection);
+
+    updateEditorState();
 });

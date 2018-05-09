@@ -15,7 +15,7 @@ var BLOCK_DELETE_TYPES = [
 var recast = require("recast");
 var estraverse = require("estraverse");
 var decorations = [];
-var highlightedPreDelete = false;
+var highlightedPreDelete = null; // [startCursor, endCursor] or null
 var highlightedEditable = false;
 
 /**************************************
@@ -33,6 +33,27 @@ var highlightedEditable = false;
  */
 function onCursorType() {
     console.log("onCursorType");
+    // update the editable region if the new character is on the end line
+    var index = findCursorEditableRegionIndex(editorState.cursor);
+    if (index !== null) {
+        var editableRegion = editorState.editableRegions[index];
+        if (editableRegion[0].lineNumber === editableRegion[1].lineNumber) {
+            adjustEditableRegion(index, 0, 0, 0, 1);
+        }
+    }
+    if (!cursorInEditableRegion(editorState.cursor)) {
+        revertAction();
+    } else {
+        // check parsability changes
+        var wasParsable = editorState.parsable;
+        var ast = attemptParse(editor.getValue());
+        if (wasParsable && !ast) {
+            setSingleLineEditableRegion(1);
+        } else if (!wasParsable && ast) {
+            makeAllEditable();
+        } else if (!wasParsable && !ast) {
+        }
+    }
     updateEditorState();
 }
 
@@ -45,6 +66,38 @@ function onCursorType() {
  */
 function onCursorBackspace() {
     console.log("onCursorBackspace");
+    var index = findCursorEditableRegionIndex(editorState.cursor);
+    // The backspace should not happen if:
+    // * The cursor not in an editable region
+    // * It is in an editable region, but would remove the starting parenthesis
+    if (!cursorInEditableRegion(editorState.cursor)) {
+        flash();
+    } else if (editorState.inParenthesis && getCursor().column === editorState.editableRegions[index][0].column) {
+        flash();
+    } else {
+        // otherwise, it's in an editable region
+        // if the buffer is currently parsable, try to be clever about backspacing over entire blocks
+        // otherwise, just let backspace work as usual
+        if (editorState.parsable) {
+            doCursorBackspace();
+            if (!attemptParse(editor.getValue())) {
+                setSingleLineEditableRegion(-1);
+            }
+        } else {
+            backspaceCharacter(editor.getValue(), getCursor());
+            if (attemptParse(editor.getValue())) {
+                makeAllEditable();
+            } else {
+                // update the editable region
+                var editableRegion = editorState.editableRegions[index];
+                // if the new character is on the same line as the end of the region
+                // increment the column number to account for the new character
+                if (editableRegion[0].lineNumber === editableRegion[1].lineNumber) {
+                    adjustEditableRegion(index, 0, 0, 0, -1);
+                }
+            }
+        }
+    }
     updateEditorState();
 }
 
@@ -57,6 +110,38 @@ function onCursorBackspace() {
  */
 function onCursorDelete() {
     console.log("onCursorDelete");
+    var index = findCursorEditableRegionIndex(editorState.cursor);
+    // The delete should not happen if:
+    // * The cursor not in an editable region
+    // * It is in an editable region, but would remove the ending parenthesis
+    if (!cursorInEditableRegion(editorState.cursor)) {
+        flash();
+    } else if (editorState.inParenthesis && getCursor().column === editorState.editableRegions[index][1].column) {
+        flash();
+    } else {
+        // otherwise, it's in an editable region
+        // if the buffer is currently parsable, try to be clever about backspacing over entire blocks
+        // otherwise, just let backspace work as usual
+        if (editorState.parsable) {
+            doCursorDelete();
+            if (!attemptParse(editor.getValue())) {
+                setSingleLineEditableRegion(-1);
+            }
+        } else {
+            deleteCharacter(editor.getValue(), getCursor());
+            if (attemptParse(editor.getValue())) {
+                makeAllEditable();
+            } else {
+                // update the editable region
+                var editableRegion = editorState.editableRegions[index];
+                // if the new character is on the same line as the end of the region
+                // increment the column number to account for the new character
+                if (editableRegion[0].lineNumber === editableRegion[1].lineNumber) {
+                    adjustEditableRegion(index, 0, 0, 0, -1);
+                }
+            }
+        }
+    }
     updateEditorState();
 }
 
@@ -195,17 +280,6 @@ function updateEditorState() {
         }
     } else { 
         editorState.parsable = false;
-        // if on same line
-        if (cursor.lineNumber === editorState.cursor.lineNumber) {
-            if (editorState.parentheses) {
-                if (highlightedEditable) {
-                    unhighlight();
-                }
-                var startCursor = editorState.parentheses[0];
-                var endCursor = editorState.parentheses[1];
-                highlightEditable(startCursor, endCursor);
-            }
-        }
         document.getElementById("parseButton").disabled = false;
     }
 }
@@ -341,6 +415,59 @@ function revertToParsed() { // eslint-disable-line no-unused-vars
 } 
 
 /**
+ * Revert to before the current action
+ *
+ * @returns {undefined}
+ */
+function revertAction() {
+    setValue(editorState.text);
+    setCursor(editorState.cursor);
+    flash();
+}
+
+/**
+ * Handle an actual backspace.
+ *
+ * @returns {undefined}
+ */
+function doCursorBackspace() {
+    var buffer = editor.getValue();
+    var cursor = getCursor();
+    var oneBack = makeCursor(cursor.lineNumber, cursor.column - 1);
+    var ast = attemptParse(buffer);
+    if (cursorAtEndOfBlock(ast, cursor, BLOCK_DELETE_TYPES)) {
+        var node = findClosestDeletableBlock(ast, cursor);
+        highlightAndDelete(ast, node);
+    } else if (spansProtectedPunctuation(buffer, ast, [oneBack, cursor])) {
+        // ignore the backspace if it will remove a syntax parenthesis or brace
+        flash(); 
+    } else {
+        backspaceCharacter(buffer, cursor);
+    }
+}
+
+/**
+ * Handle an backspace deletion
+ *
+ * @returns {undefined}
+ */
+function doCursorDelete() {
+    var buffer = editor.getValue();
+    var cursor = getCursor();
+    var oneAhead = makeCursor(cursor.lineNumber, cursor.column + 1);
+    var ast = attemptParse(buffer);
+    if (cursorAtStartOfBlock(ast, cursor, BLOCK_DELETE_TYPES)) {
+        var node = findClosestDeletableBlock(ast, cursor);
+        highlightAndDelete(ast, node);
+    } else if (spansProtectedPunctuation(buffer, ast, [cursor, oneAhead])) {
+        // ignore the delete if it will remove a syntax parenthesis or brace
+        flash(); 
+    } else {
+        deleteCharacter(buffer, cursor);
+    }
+}
+
+/**
  * Delete selected text
  *
  * @param {AST} ast - The root of the ast to delete from.
@@ -400,7 +527,7 @@ function flash() {
  */
 function highlightPreDelete(startCursor, endCursor) {
     highlight(startCursor, endCursor, "predelete-highlight");
-    highlightedPreDelete = true;
+    highlightedPreDelete = [startCursor, endCursor];
 }
 
 /**
@@ -441,8 +568,35 @@ function highlight(startCursor, endCursor, cssClass) {
  */
 function unhighlight() {
     decorations = editor.deltaDecorations(decorations, []);
-    highlightedPreDelete = false;
+    highlightedPreDelete = null;
     highlightedEditable = false;
+}
+
+/**************************************
+ *
+ * SECTION: MID-LEVEL ACTIONS
+ *
+ **************************************/
+
+/**
+ * Highlight a block or delete it if already highlighted
+ *
+ * @param {AST} ast - The root of the ast
+ * @param {AST} node - The node to delete
+ * @returns {undefined}
+ */
+function highlightAndDelete(ast, node) {
+    var nodeCursors = getNodeLoc(node);
+    var startCursor = nodeCursors[0];
+    var endCursor = nodeCursors[1];
+    if (highlightedPreDelete) {
+        // TODO cursor is off due to auto-reformatting
+        setCursor(highlightedPreDelete[0]);
+        setValue(deleteBlock(ast, node));
+        unhighlight();
+    } else {
+        highlightPreDelete(startCursor, endCursor);
+    }
 }
 
 /**************************************
@@ -1120,7 +1274,6 @@ function positionFromEnd(buffer, cursor) {
 
     return lastPart.join("").length;
 }
-
 
 /**
  * Get a cursor at the last position of a string.

@@ -169,6 +169,11 @@ function updateEditorState() {
         editorState.cursor = getCursor();
         editorState.sections = splitAtCursors(buffer, [editorState.cursor]);
     }
+    // one time initialization of editableRegions and related state
+    if (editorState.editableRegions.length === 0) {
+        makeAllEditable();
+        editorState.inParenthesis = false;
+    }
 
     if (ast) {
         if (highlightedEditable) {
@@ -205,6 +210,118 @@ function updateEditorState() {
     }
 }
 
+/**
+ * Make the entire buffer editable.
+ *
+ * @returns {undefined}
+ */
+function makeAllEditable() {
+    editorState.editableRegions = [ [
+        makeCursor(1, 0),
+        getLastCursor(editor.getValue()),
+    ] ];
+}
+
+/**
+ * Sets the editable region to a single line.
+ *
+ * Because this function could be called from different editing events, the
+ * adjustment parameter allows the calling event to adjust the ending column
+ * (ie. -1 if the event was a backspace or a delete, +1 if it was an insert).
+ *
+ * @param {int} adjustment - amount to move the end column
+ * @returns {undefined}
+ */
+function setSingleLineEditableRegion(adjustment) {
+    // if cursor is in condition or for
+    //   limit to for
+    // else
+    //   limit to entire line
+    var startCursor = null;
+    var endCursor = null;
+    var parens = getSurroundingProtectedParen(editorState.parsableText, editorState.parse, editorState.cursor);
+    if (parens === null) {
+        startCursor = getCursor();
+        endCursor = getCursor();
+        startCursor.column = 0;
+        endCursor.column = getLine(editor.getValue(), startCursor.lineNumber - 1).length;
+        editorState.inParenthesis = false;
+    } else {
+        startCursor = parens[0];
+        endCursor = parens[1];
+        startCursor.column += 1;
+        endCursor.column -= 1;
+        endCursor.column += adjustment;
+        editorState.inParenthesis = true;
+    }
+    editorState.editableRegions = [ [copyCursor(startCursor), copyCursor(endCursor)] ];
+    highlightEditable(startCursor, endCursor);
+}
+
+/**
+ * Adjusts an editable region.
+ *
+ * @param {int} index - the index of the editable region 
+ * @param {int} startLine - amount to move the start line
+ * @param {int} startColumn - amount to move the start column
+ * @param {int} endLine - amount to move the end line
+ * @param {int} endColumn - amount to move the end column
+ * @returns {undefined}
+ */
+function adjustEditableRegion(index, startLine, startColumn, endLine, endColumn) {
+    var startCursor = editorState.editableRegions[index][0];
+    var endCursor = editorState.editableRegions[index][1];
+    startCursor.lineNumber += startLine;
+    startCursor.column += startColumn;
+    endCursor.lineNumber += endLine;
+    endCursor.column += endColumn;
+    highlightEditable(startCursor, endCursor);
+}
+
+/**
+ * Find the index of the editable region that contains the cursor.
+ *
+ * @param {Cursor} cursor - the cursor location
+ * @returns {int} - the index, or null
+ */
+function findCursorEditableRegionIndex(cursor) {
+    for (var i = 0; i < editorState.editableRegions.length; i++) {
+        var regionStart = copyCursor(editorState.editableRegions[i][0]);
+        var regionEnd = copyCursor(editorState.editableRegions[i][1]);
+        regionStart.column -= 1;
+        regionEnd.column += 1;
+        if (isBetweenCursors(cursor, regionStart, regionEnd)) {
+            return i;
+        }
+    }
+    return null;
+}
+
+/**
+ * Find the editable region that contains the cursor.
+ *
+ * @param {Cursor} cursor - the cursor location
+ * @returns {int} - the index, or null
+ */
+function findCursorEditableRegion(cursor) {
+    var index = findCursorEditableRegionIndex(cursor);
+    if (index === null) {
+        return null;
+    } else {
+        return editorState.editableRegions[index];
+    }
+}
+
+/**
+ * Determine if the cursor is in any editable region.
+ *
+ * @param {Cursor} cursor - the cursor location
+ * @returns {boolean} - true if the cursor is in an editable region
+ */
+function cursorInEditableRegion(cursor) {
+    return findCursorEditableRegionIndex(cursor) !== null;
+}
+
 /**************************************
  *
  * SECTION: HIGH-LEVEL ACTIONS
@@ -219,6 +336,8 @@ function updateEditorState() {
 function resetToParsed() { // eslint-disable-line no-unused-vars
     setValue(editorState.parsableText);
     unhighlight();
+    makeAllEditable();
+    updateEditorState();
 } 
 
 /**
@@ -1000,6 +1119,34 @@ function positionFromEnd(buffer, cursor) {
     lastPart.unshift(sameLine);                                
 
     return lastPart.join("").length;
+}
+
+
+/**
+ * Get a cursor at the last position of a string.
+ *
+ * @param {string} text - the string
+ * @returns {Cursor} - the cursor
+ */
+function getLastCursor(text) {
+    var lines = text.split("\n");
+    var numLines = lines.length;
+    return makeCursor(numLines, lines[numLines - 1].length);
+}
+
+/**
+ * Get a specific line from a string.
+ *
+ * @param {string} text - the string
+ * @param {int} line_index - the line index
+ * @returns {string} - the line
+ */
+function getLine(text, line_index) {
+    var lines = text.split("\n");
+    if (line_index < 0) {
+        line_index = lines.length + line_index;
+    }
+    return lines[line_index];
 }
 
 /**************************************

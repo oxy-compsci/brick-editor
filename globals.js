@@ -21,6 +21,11 @@ var editorState = {
     parse: null,
     // the editor buffer at the last parsable point
     parsableText: "",
+    // the regions where editing is allowed
+    editableRegions: [],
+    // if the editable regions are bounded by parenthesis
+    inParenthesis: false,
+
     // save positions of parentheses in relation to beginning and end of buffer
     openParenthesis: null,
     closeParenthesis: null,

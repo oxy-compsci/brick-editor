@@ -763,12 +763,13 @@ function cursorAtStartOfBlock(ast, cursor, nodeTypes) {
 /**
  * Test if a cursor is between two others, exclusive.
  *
- * Note that this function deliberately breaks the rules of standard indexes -
- * inclusive of the starting index and exclusive of the ending index. This is
- * because text editing cursors do not work this way. If a pair of parentheses
- * are at indexes 5 and 15, a cursor at index 5 would be *within* that range
- * despite being *before* the starting parenthesis. The hope is to force
- * callers of this function to think through their cursor indices.
+ * Note that this function deliberately breaks the rules of standard indexes
+ * (ie. it is NOT inclusive of the starting index and exclusive of the ending
+ * index. This is because text editing cursors do not work this way. If a pair
+ * of parentheses are at indexes 5 and 15, a cursor at index 5 would be
+ * *within* that range despite being *before* the starting parenthesis. The
+ * hope is to force callers of this function to think through their cursor
+ * indices.
  *
  * @param {Cursor} cursor - the cursor to test.
  * @param {Cursor} startCursor - the cursor marking the beginning of a region.

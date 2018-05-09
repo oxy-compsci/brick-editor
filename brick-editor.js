@@ -25,180 +25,121 @@ var highlightedParen = false;
  *********************************************/
 
 /**
- * Handler for any text on a cursor.
+ * Handle any typing at the cursor.
+ *
+ * This function is called after the buffer has changed.
  *
  * @returns {undefined}
  */
-function onPointInsert() {
-    console.log("on point insert"); // eslint-disable-line no-console
-    // if editor is unparsable
-    if (!attemptParse(editor.getValue())) {
-        // if cursor is where editor became unparsable
-        var cursor = getCursor();
-        var buffer = editor.getValue();
-        if (cursor.lineNumber === editorState.cursor.lineNumber) {
-            // if cursor was inside parentheses
-            if (editorState.openParenthesis && editorState.closeParenthesis) {
-                // add one column position to editorState.parentheses because character was added but not accounted for
-                if (!highlightedParen) {
-                    var startCursor = editorState.parentheses[0];
-                    var endCursor = editorState.parentheses[1];
-                    endCursor.column += 1;
-                    highlightParen(startCursor, endCursor);
-                }
-                // if outside of parentheses currently
-                if (positionFromStart(buffer, cursor) - 1 <= editorState.openParenthesis || positionFromEnd(buffer, cursor) <= editorState.closeParenthesis) {
-                    editor.trigger("", "undo");
-                } else {
-                    editorState.parentheses[1].column = editorState.parentheses[1].column + 1;
-                }
-            }
-        } else {
-            editor.trigger("", "undo");
-        }
-    }
+function onCursorType() {
+    console.log("onCursorType");
     updateEditorState();
 }
 
 /**
- * Handler for backspace on a cursor.
+ * Handle backspace at the cursor.
+ *
+ * This function is called BEFORE the buffer is changed.
  *
  * @returns {undefined}
  */
-function onPointBackspace() {
-    console.log("on point backspace"); // eslint-disable-line no-console
-    var buffer = editor.getValue();
-    var cursor = getCursor();
-    if (attemptParse(buffer)) {
-        var oneBack = makeCursor(cursor.lineNumber, cursor.column - 1);
-        var ast = attemptParse(buffer);
-        if (cursorAtEndOfBlock(ast, cursor, BLOCK_DELETE_TYPES)) {
-            var node = findClosestDeletableBlock(ast, cursor);
-            var nodeCursors = getNodeLoc(node);
-            var startCursor = nodeCursors[0];
-            var endCursor = nodeCursors[1];
-            if (highlighted) {
-                setValue(deleteBlock(ast, node));
-                unhighlight();
-            } else {
-                highlightBlock(startCursor, endCursor);
-            }
-        } else if (spansProtectedPunctuation(buffer, ast, [oneBack, cursor])) {
-            // ignore the backspace if it's something important
-            // flash editor screen 
-            flash(); 
-        } else {
-            doCursorBackspace(buffer, cursor);
-        }
-    } else if (cursor.lineNumber === editorState.cursor.lineNumber) { // if unparsable but on same line
-        // if cursor was inside () at last parsable state
-        if (editorState.openParenthesis && editorState.closeParenthesis) {
-            if (positionFromStart(buffer, cursor) - 1 === editorState.openParenthesis) {
-                // ignore backspace if directly to the right of (
-                flash();
-            } else if (positionFromStart(buffer, cursor) <= editorState.openParenthesis || positionFromEnd(buffer, cursor) <= editorState.closeParenthesis) {
-                // ignore backspace if to the right of ) or to the left of (
-                flash();
-            } else {
-                // update highlighting range
-                editorState.parentheses[1].column = editorState.parentheses[1].column - 1;
-                doCursorBackspace(buffer, cursor);
-            }
-        } else {
-            doCursorBackspace(buffer, cursor);
-        }
-    }
+function onCursorBackspace() {
+    console.log("onCursorBackspace");
     updateEditorState();
 }
 
 /**
- * Handler for delete on a cursor.
+ * Handle delete at the cursor.
+ *
+ * This function is called BEFORE the buffer is changed.
  *
  * @returns {undefined}
  */
-function onPointDelete() {
-    console.log("on point delete"); // eslint-disable-line no-console
-    var buffer = editor.getValue();
-    var cursor = getCursor();
-    if (attemptParse(buffer)) {
-        if (highlightedParen) {
-            unhighlight();
-        }
-        var oneAhead = makeCursor(cursor.lineNumber, cursor.column + 1);
-        var ast = attemptParse(buffer);
-        if (cursorAtStartOfBlock(ast, cursor, BLOCK_DELETE_TYPES)) {
-            var node = findClosestDeletableBlock(ast, cursor);
-            var nodeCursors = getNodeLoc(node);
-            var startCursor = nodeCursors[0];
-            var endCursor = nodeCursors[1];
-            if (highlighted) {
-                setValue(deleteBlock(ast, node));
-                unhighlight();
-            } else {
-                highlightBlock(startCursor, endCursor);
-            }
-        } else if (spansProtectedPunctuation(buffer, ast, [cursor, oneAhead])) {
-            // ignore the delete if it's something important
-            // flash editor screen 
-            flash(); 
-        } else {
-            doCursorDelete(buffer, cursor);
-        }
-    } else if (cursor.lineNumber === editorState.cursor.lineNumber) { // if unparsable but on same line
-        // if inside parentheses when became unparsable 
-        if (editorState.openParenthesis && editorState.closeParenthesis) {
-            if (positionFromEnd(buffer, cursor) - 1 === editorState.closeParenthesis) { // if directly to left of ) 
-                // ignore delete if parenthesis
-                flash();
-            } else if (positionFromStart(buffer, cursor) <= editorState.openParenthesis || positionFromEnd(buffer, cursor) <= editorState.closeParenthesis) { // if left of ( or right of )
-                // ignore delete if left or right of conditional
-                flash();
-            } else {
-                // update highlighting range
-                editorState.parentheses[1].column = editorState.parentheses[1].column - 1;
-                doCursorDelete(buffer, cursor);
-            }
-        } else {
-            doCursorDelete(buffer, cursor);
-        }
-    }
+function onCursorDelete() {
+    console.log("onCursorDelete");
     updateEditorState();
 }
 
 /**
- * Handler for any text on a selection.
+ * Handle any typing on a selection.
+ *
+ * This function is called after the buffer has changed.
  *
  * @returns {undefined}
  */
-function onRangeReplace() {
-    console.log("on range replace"); // eslint-disable-line no-console
+function onSelectionType() {
+    console.log("onSelectionType()");
     updateEditorState();
 }
 
 /**
- * Handler for any deletion of a selection.
+ * Handle backspace on a selection.
+ *
+ * This function is called BEFORE the buffer is changed.
  *
  * @returns {undefined}
  */
-function onRangeDelete() {
-    console.log("on range delete"); // eslint-disable-line no-console
-    var buffer = editor.getValue();
-    var ast = attemptParse(buffer);
-    var selection = getSelected();
-    if (ast && selection) {
-        var node = deleteSelected(ast, selection);
-        var nodeCursors = getNodeLoc(node);
-        var startCursor = nodeCursors[0];
-        var endCursor = nodeCursors[1];
-        if (highlighted) {
-            setValue(deleteBlock(ast, node));
-            unhighlight();
-        } else {
-            highlightBlock(startCursor, endCursor);
-        } 
-    }
+function onSelectionBackspace() {
+    console.log("onSelectionBackspace");
     updateEditorState();
 }
+
+/**
+ * Handle delete on a selection.
+ *
+ * This function is called BEFORE the buffer is changed.
+ *
+ * @returns {undefined}
+ */
+function onSelectionDelete() {
+    console.log("onSelectionDelete");
+    updateEditorState();
+}
+
+/**
+ * Handle cutting on a selection.
+ *
+ * This function is called after the buffer has changed.
+ *
+ * @returns {undefined}
+ */
+function onSelectionCut() {
+    console.log("onSelectionCut");
+    updateEditorState();
+}
+
+/**
+ * Handle pasting at the cursor.
+ *
+ * This function is called after the buffer has changed.
+ *
+ * @returns {undefined}
+ */
+function onCursorPaste() {
+    console.log("onCursorPaste");
+    updateEditorState();
+}
+
+/**
+ * Handle pasting over a selection.
+ *
+ * This function is called after the buffer has changed.
+ *
+ * @returns {undefined}
+ */
+function onSelectionPaste() {
+    console.log("onSelectionPaste");
+    updateEditorState();
+}
+
+/**
+ * Handle code being dragged by the mouse.
+ *
+ * This function is called FIXME the buffer has changed.
+ *
+ * @returns {undefined}
+ */
+function onMouseDrag() {}
 
 /*********************************************
  *
@@ -393,10 +334,10 @@ function unhighlight() {
  * @returns {undefined}
  */
 function backspaceHandler() { // eslint-disable-line no-unused-vars
-    if (getSelected()) {
-        onRangeDelete();
+    if (!editorState.hasSelected) {
+        onCursorBackspace();
     } else {
-        onPointBackspace();
+        onSelectionBackspace();
     }
 }
 
@@ -406,10 +347,10 @@ function backspaceHandler() { // eslint-disable-line no-unused-vars
  * @returns {undefined}
  */
 function deleteHandler() { // eslint-disable-line no-unused-vars
-    if (getSelected()) {
-        onRangeDelete();
+    if (!editorState.hasSelected) {
+        onCursorDelete();
     } else {
-        onPointDelete();
+        onSelectionDelete();
     }
 }
 
@@ -420,23 +361,6 @@ function deleteHandler() { // eslint-disable-line no-unused-vars
  * @returns {undefined}
  */
 function onDidChangeCursorSelection(e) { // eslint-disable-line no-unused-vars
-
-    /*
-    console.log("ondidchangecursorselection");
-    console.log("    source:", e.source);
-    console.log("    reason:", e.reason);
-    var selection = e.selection;
-    console.log("    [" +
-        selection.startLineNumber
-        + ":" + 
-        selection.startColumn
-        + ", " + 
-        selection.endLineNumber
-        + ":" + 
-        selection.endColumn
-        + "]"
-    );
-    */
     if (highlighted) {
         unhighlight();
     }
@@ -446,21 +370,21 @@ function onDidChangeCursorSelection(e) { // eslint-disable-line no-unused-vars
     } else if (e.source === "keyboard") {
         if (e.reason === 4) { // pasted
             if (editorState.hasSelected) {
-                onRangeReplace();
+                onSelectionPaste();
             } else {
-                onPointInsert();
+                onCursorPaste();
             }
         } else if (e.reason === 3) { // arrow key movement
             updateEditorState();
         } else if (e.reason === 0) { // cut or type
             if (!editorState.hasSelected) { // typed at cursor
-                onPointInsert();
+                onCursorType();
             } else {
                 var sections = splitAtCursors(editorState.parsableText, editorState.cursor);
                 if (editor.getValue().length > sections[0].length + sections[2].length) {
-                    onRangeReplace(); // typed over range
+                    onSelectionType();
                 } else {
-                    onRangeDelete(); // cut
+                    onSelectionCut();
                 }
             }
         }

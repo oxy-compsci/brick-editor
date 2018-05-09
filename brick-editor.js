@@ -251,7 +251,7 @@ function updateEditorState() {
 
     // general editor state
     editorState.text = buffer;
-    var selected = getSelected();
+    var selected = getSelection();
     if (selected) {
         editorState.hasSelected = true;
         editorState.cursor = selected;
@@ -1379,11 +1379,11 @@ function setCursor(cursor) {
  *
  * @returns {[Cursor]} - A list of two Cursors defining the selection.
  */
-function getSelected() {
-    var selectionObject = editor.getSelection();
-    var selection = [
-        makeCursor(selectionObject.startLineNumber, selectionObject.startColumn - 1),
-        makeCursor(selectionObject.endLineNumber, selectionObject.endColumn - 1),
+function getSelection() {
+    var selection = editor.getSelection();
+    selection = [
+        makeCursor(selection.startLineNumber, selection.startColumn - 1),
+        makeCursor(selection.endLineNumber, selection.endColumn - 1),
     ];
     if (selection[0].lineNumber !== selection[1].lineNumber
         || selection[0].column !== selection[1].column) {
@@ -1391,6 +1391,22 @@ function getSelected() {
     } else {
         return null;
     }
+}
+
+/**
+ * Set the selection in the editor
+ *
+ * @param {Cursor} startCursor - the start of the selection
+ * @param {Cursor} endCursor - the end of the selection
+ * @returns {[Cursor]} - A list of two Cursors defining the selection.
+ */
+function setSelection(startCursor, endCursor) {
+    editor.setSelection({
+        "startLineNumber":startCursor.lineNumber,
+        "startColumn":startCursor.column + 1,
+        "endLineNumber":endCursor.lineNumber,
+        "endColumn":endCursor.column + 1,
+    });
 }
 
 /** 

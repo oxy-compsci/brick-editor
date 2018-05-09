@@ -527,7 +527,7 @@ function onDidChangeCursorSelection(e) { // eslint-disable-line no-unused-vars
  * @param {Cursor} cursor - The line and column of the cursor
  * @returns {undefined}
  */
-function doCursorBackspace(buffer, cursor) {
+function backspaceCharacter(buffer, cursor) {
     var beginCursor = makeCursor(cursor.lineNumber, cursor.column - 1);
     var sections = splitAtCursors(buffer, [beginCursor, cursor]);
     setValue([sections[0], sections[2]].join(""));
@@ -547,7 +547,7 @@ function doCursorBackspace(buffer, cursor) {
  * @param {Cursor} cursor - The line and column of the cursor
  * @returns {undefined}
  */
-function doCursorDelete(buffer, cursor) {
+function deleteCharacter(buffer, cursor) {
     var endCursor = makeCursor(cursor.lineNumber, cursor.column + 1);
     var sections = splitAtCursors(buffer, [cursor, endCursor]);
     setValue([sections[0], sections[2]].join(""));

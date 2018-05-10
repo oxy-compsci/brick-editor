@@ -335,7 +335,7 @@ function setSingleLineEditableRegion(adjustment) {
         endCursor.column += adjustment;
         editorState.inParenthesis = true;
     }
-    editorState.editableRegions = [ [copyCursor(startCursor), copyCursor(endCursor)] ];
+    editorState.editableRegions = [ [startCursor, endCursor] ];
     highlightEditable(startCursor, endCursor);
 }
 
@@ -1141,7 +1141,7 @@ function getSurroundingProtectedParen(buffer, ast, cursor) {
     }
     // return the parenthesis cursors if they contain the cursor
     if (isBetweenCursors(cursor, startCursor, endCursor)) {
-        return [startCursor, endCursor];
+        return [copyCursor(startCursor), copyCursor(endCursor)];
     } else {
         return null;
     }
@@ -1361,7 +1361,7 @@ function isAfter(cursor1, cursor2) {
 function getCursor() {
     var cursor = editor.getPosition();
     cursor.column = cursor.column - 1;
-    return cursor;
+    return makeCursor(cursor.lineNumber, cursor.column - 1);
 }
 
 /**

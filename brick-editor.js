@@ -1402,7 +1402,7 @@ function getSelection() {
  *
  * @param {Cursor} startCursor - the start of the selection
  * @param {Cursor} endCursor - the end of the selection
- * @returns {[Cursor]} - A list of two Cursors defining the selection.
+ * @returns {undefined}
  */
 function setSelection(startCursor, endCursor) {
     editor.setSelection({

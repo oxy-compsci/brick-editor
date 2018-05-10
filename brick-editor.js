@@ -161,6 +161,35 @@ function onCursorDelete() {
  */
 function onSelectionType() {
     console.log("onSelectionType()");
+    var selection = editorState.cursor;
+    // if the selection character is not in an editable region, revert it
+    if (!selectionInEditableRegion(selection[0], selection[1])) {
+        revertAction();
+    } else {
+        // check parsability changes due to the new character
+        var ast = attemptParse(editor.getValue());
+        if (editorState.parsable) {
+            if (!ast) {
+                setMultiLineEditableRegion();
+            }
+        } else {
+            if (ast) {
+                makeAllEditable();
+            } else {
+                // update the editable region
+                var editableRegion = editorState.editableRegions[0];
+                var lineDiff = editor.getValue().split("\n").length - editorState.text.split("\n").length;
+                if (lineDiff) {
+                    var line = getLine(editor.getValue(), editableRegion[1].lineNumber + lineDiff - 1);
+                    var columnDiff = line.length - editableRegion[1].column;
+                    adjustEditableRegion(0, 0, 0, lineDiff, columnDiff);
+                } else if (editorState.cursor.lineNumber === editableRegion[1].lineNumber) {
+                    adjustEditableRegion(0, 0, 0, 0, 1);
+                }
+                console.log(editorState.editableRegions[0][1]);
+            }
+        }
+    }
     updateEditorState();
 }
 
@@ -346,6 +375,52 @@ function setSingleLineEditableRegion(adjustment) {
     highlightEditable(startCursor, endCursor);
 }
 
+function setMultiLineEditableRegion() {
+    // find the closest common parent
+    var parentNode = findClosestCommonParent(editorState.parse, editorState.cursor, ["BlockStatement", "Program"]);
+    // find the smallest span of siblings that contain both cursors
+    var body = parentNode.body;
+    // find start location
+    var startCursor = null;
+    for (var i = 0; i < body.length; i++) {
+        var nodeCursors = getNodeLoc(body[i]);
+        if (isBefore(editorState.cursor[0], nodeCursors[0])) {
+            if (i === 0) {
+                startCursor = makeCursor(1, 0);
+            } else {
+                startCursor = makeCursor(getNodeLoc(body[i - 1])[1].lineNumber + 1, 0);
+            }
+            break
+        } else if (isBefore(editorState.cursor[0], nodeCursors[1])) {
+            startCursor = makeCursor(nodeCursors[0].lineNumber, 0);
+            break;
+        }
+    }
+    // find end location
+    var endCursor = null;
+    for (var i = body.length - 1; i >= 0; i--) {
+        var nodeCursors = getNodeLoc(body[i]);
+        if (isBefore(editorState.cursor[1], nodeCursors[0])) {
+            if (i === 0) {
+                endCursor = makeCursor(1, Infinity);
+            } else {
+                endCursor = makeCursor(getNodeLoc(body[i - 1])[1].lineNumber, Infinity);
+            }
+            break
+        } else if (isBefore(editorState.cursor[1], nodeCursors[1])) {
+            endCursor = makeCursor(nodeCursors[1].lineNumber, Infinity);
+            break;
+        }
+    }
+    // map to post-edit cursors
+    endCursor.lineNumber -= editorState.text.split("\n").length - editor.getValue().split("\n").length ;
+    endCursor.column = getLine(editor.getValue(), endCursor.lineNumber - 1).length;
+
+    editorState.editableRegions = [ [startCursor, endCursor] ];
+    highlightEditable(startCursor, endCursor);
+    console.log(editorState.editableRegions[0]);
+}
+
 /**
  * Adjusts an editable region.
  *
@@ -408,6 +483,20 @@ function findCursorEditableRegion(cursor) {
  */
 function cursorInEditableRegion(cursor) {
     return findCursorEditableRegionIndex(cursor) !== null;
+}
+
+/**
+ * Determine if the selection is in any editable region.
+ *
+ * @param {Cursor} startCursor - the start cursor location
+ * @param {Cursor} endCursor - the end cursor location
+ * @returns {boolean} - true if the cursor is in an editable region
+ */
+function selectionInEditableRegion(startCursor, endCursor) {
+    var startIndex = findCursorEditableRegionIndex(startCursor);
+    var endIndex = findCursorEditableRegionIndex(endCursor);
+    return (startIndex !== null) && (startIndex == endIndex);
+
 }
 
 /**************************************

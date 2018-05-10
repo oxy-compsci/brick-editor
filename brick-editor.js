@@ -194,19 +194,7 @@ function onSelectionType() {
 }
 
 /**
- * Handle backspace on a selection.
- *
- * This function is called BEFORE the buffer is changed.
- *
- * @returns {undefined}
- */
-function onSelectionBackspace() {
-    console.log("onSelectionBackspace");
-    updateEditorState();
-}
-
-/**
- * Handle delete on a selection.
+ * Handle backspace and delete on a selection.
  *
  * This function is called BEFORE the buffer is changed.
  *
@@ -721,7 +709,7 @@ function backspaceHandler() { // eslint-disable-line no-unused-vars
     if (!editorState.hasSelected) {
         onCursorBackspace();
     } else {
-        onSelectionBackspace();
+        onSelectionDelete();
     }
 }
 

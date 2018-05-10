@@ -1039,34 +1039,6 @@ function cursorAtStartOfBlock(ast, cursor, nodeTypes) {
  **************************************/
 
 /**
- * Test if a cursor is between two others, exclusive.
- *
- * Note that this function deliberately breaks the rules of standard indexes
- * (ie. it is NOT inclusive of the starting index and exclusive of the ending
- * index. This is because text editing cursors do not work this way. If a pair
- * of parentheses are at indexes 5 and 15, a cursor at index 5 would be
- * *within* that range despite being *before* the starting parenthesis. The
- * hope is to force callers of this function to think through their cursor
- * indices.
- *
- * @param {Cursor} cursor - the cursor to test.
- * @param {Cursor} startCursor - the cursor marking the beginning of a region.
- * @param {Cursor} endCursor - the cursor marking the end of a region.
- * @returns {boolean} - True if the cursor is between the other two.
- */
-function isBetweenCursors(cursor, startCursor, endCursor) {
-    var afterStart = (
-        (cursor.lineNumber > startCursor.lineNumber) || (
-            (cursor.lineNumber === startCursor.lineNumber) &&
-            (cursor.column > startCursor.column)));
-    var beforeEnd = (
-        (cursor.lineNumber < endCursor.lineNumber) || (
-            (cursor.lineNumber === endCursor.lineNumber) &&
-            (cursor.column < endCursor.column)));
-    return afterStart && beforeEnd;
-}
-
-/**
  * Check if a selection spans a protected punctuation.
  *
  * Protected punctuation are defined as:
@@ -1337,6 +1309,38 @@ function makeCursor(line, col) {
  */
 function copyCursor(cursor) {
     return makeCursor(cursor.lineNumber, cursor.column);
+}
+
+/**
+ * Test if a cursor is between two others, exclusive.
+ *
+ * Note that this function deliberately breaks the rules of standard indexes
+ * (ie. it is NOT inclusive of the starting index and exclusive of the ending
+ * index. This is because text editing cursors do not work this way. If a pair
+ * of parentheses are at indexes 5 and 15, a cursor at index 5 would be
+ * *within* that range despite being *before* the starting parenthesis. The
+ * hope is to force callers of this function to think through their cursor
+ * indices.
+ *
+ * @param {Cursor} cursor - the cursor to test.
+ * @param {Cursor} startCursor - the cursor marking the beginning of a region.
+ * @param {Cursor} endCursor - the cursor marking the end of a region.
+ * @returns {boolean} - True if the cursor is between the other two.
+ */
+function isBetweenCursors(cursor, startCursor, endCursor) {
+    return isAfter(cursor, startCursor) && isBefore(cursor, endCursor);
+}
+
+function isBefore(cursor1, cursor2) {
+    return (cursor1.lineNumber < cursor2.lineNumber) || (
+        (cursor1.lineNumber === cursor2.lineNumber) &&
+        (cursor1.column < cursor2.column));
+}
+
+function isAfter(cursor1, cursor2) {
+    return (cursor1.lineNumber > cursor2.lineNumber) || (
+        (cursor1.lineNumber === cursor2.lineNumber) &&
+        (cursor1.column > cursor2.column));
 }
 
 /**************************************

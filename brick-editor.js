@@ -202,6 +202,33 @@ function onSelectionType() {
  */
 function onSelectionDelete() {
     console.log("onSelectionDelete");
+    var selection = editorState.cursor;
+    // if the selection character is not in an editable region, revert it
+    if (!selectionInEditableRegion(selection[0], selection[1])) {
+        flash();
+    } else {
+        if (editorState.parsable) {
+            doSelectionDelete();
+            if (!attemptParse(editor.getValue())) {
+                setMultiLineEditableRegion()
+            }
+        } else {
+            if (attemptParse(editor.getValue())) {
+                makeAllEditable();
+            } else {
+                // update the editable region
+                var editableRegion = editorState.editableRegions[0];
+                var lineDiff = editor.getValue().split("\n").length - editorState.text.split("\n").length;
+                if (lineDiff) {
+                    var line = getLine(editor.getValue(), editableRegion[1].lineNumber + lineDiff - 1);
+                    var columnDiff = line.length - editableRegion[1].column;
+                    adjustEditableRegion(0, 0, 0, lineDiff, columnDiff);
+                } else if (editorState.cursor.lineNumber === editableRegion[1].lineNumber) {
+                    adjustEditableRegion(0, 0, 0, 0, 1);
+                }
+            }
+        }
+    }
     updateEditorState();
 }
 
@@ -531,20 +558,21 @@ function doCursorDelete() {
 }
 
 /**
- * Delete selected text
+ * Handle the actual deleting on a selection.
  *
- * @param {AST} ast - The root of the ast to delete from.
- * @param {[Cursor]} selection - List of start and end Cursors.
- * @returns {string} buffer
+ * @returns {undefined}
  */
-function deleteSelected(ast, selection) {
-    var node = null;
-    if (findClosestDeletableBlock(ast, selection[0]) === findClosestDeletableBlock(ast, selection[1])) {
-        node = findClosestDeletableBlock(ast, selection[0]);
+function doSelectionDelete() {
+    var buffer = editor.getValue();
+    var selection = getSelection();
+    var ast = attemptParse(buffer);
+    var siblingCursors = findClosestSiblingCursors(ast, getSelection());
+    // FIXME unclear when to just delete the selection and when to delete spanning blocks
+    if (siblingCursors[0].lineNumber !== siblingCursors[1].lineNumber) {
+        highlightAndDelete(ast, siblingCursors[0], siblingCursors[1]);
     } else {
-        node = findClosestCommonDeletableBlock(ast, selection, BLOCK_DELETE_TYPES);
+        deleteSelection(buffer, editorState.cursor);
     }
-    return node;
 }
 
 /**
@@ -768,6 +796,19 @@ function deleteCharacter(buffer, cursor) {
     var sections = splitAtCursors(buffer, [cursor, endCursor]);
     setValue([sections[0], sections[2]].join(""));
     setCursor(cursor);
+}
+
+/**
+ * Delete the selected text
+ *
+ * @param {string} buffer - A string of text from the editor.
+ * @returns {[Cursor]} - A list of two Cursors defining the selection.
+ * @returns {undefined}
+ */
+function deleteSelection(buffer, cursors) {
+    var sections = splitAtCursors(buffer, cursors);
+    setValue([sections[0], sections[2]].join(""));
+    setCursor(cursors[0]);
 }
 
 /**************************************

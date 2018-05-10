@@ -759,8 +759,8 @@ function buttonHandler(i) { // eslint-disable-line no-unused-vars
     var cursor = getCursor();
 
     // add block to buffer string and update editor
-    var new_text = addBlock(template, ast, cursor);
-    ast = attemptParse(new_text);
+    var newText = addBlock(template, ast, cursor);
+    ast = attemptParse(newText);
     setValue(recast.print(ast).code);
 
     // update cursor position
@@ -1210,28 +1210,28 @@ function getSurroundingProtectedBrace(buffer, ast, cursor) {
  */
 function splitAtCursors(buffer, cursors) {
     var positions = [];
-    var cursors_index = 0;
+    var cursorsIndex = 0;
     // augment positions with a fake cursor at the start
     positions.push(0);
     // deal with cursors before the start of the string
-    while (cursors[cursors_index].lineNumber < 1) {
+    while (cursors[cursorsIndex].lineNumber < 1) {
         positions.push(0);
-        cursors_index++;
+        cursorsIndex++;
     }
     // convert all cursors to character positions
     var lines = buffer.split("\n");
-    var line_num = 0;
-    var num_characters = 0;
-    for (; cursors_index < cursors.length; cursors_index++) {
-        var cursor = cursors[cursors_index];
+    var lineNum = 0;
+    var numCharacters = 0;
+    for (; cursorsIndex < cursors.length; cursorsIndex++) {
+        var cursor = cursors[cursorsIndex];
         // add non-cursor lines to the current section
-        while (line_num < lines.length && line_num + 1 < cursor.lineNumber) {
-            num_characters += lines[line_num].length + 1;
-            line_num++;
+        while (lineNum < lines.length && lineNum + 1 < cursor.lineNumber) {
+            numCharacters += lines[lineNum].length + 1;
+            lineNum++;
         }
         // add the cursor position to the list
-        if (num_characters + cursor.column < buffer.length) {
-            positions.push(num_characters + cursor.column);
+        if (numCharacters + cursor.column < buffer.length) {
+            positions.push(numCharacters + cursor.column);
         } else {
             positions.push(buffer.length);
         }
@@ -1298,15 +1298,15 @@ function getLastCursor(text) {
  * Get a specific line from a string.
  *
  * @param {string} text - the string
- * @param {int} line_index - the line index
+ * @param {int} lineIndex - the line index
  * @returns {string} - the line
  */
-function getLine(text, line_index) {
+function getLine(text, lineIndex) {
     var lines = text.split("\n");
-    if (line_index < 0) {
-        line_index = lines.length + line_index;
+    if (lineIndex < 0) {
+        lineIndex = lines.length + lineIndex;
     }
-    return lines[line_index];
+    return lines[lineIndex];
 }
 
 /**************************************

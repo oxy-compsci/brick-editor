@@ -364,49 +364,15 @@ function setSingleLineEditableRegion(adjustment) {
 }
 
 function setMultiLineEditableRegion() {
-    // find the closest common parent
-    var parentNode = findClosestCommonParent(editorState.parse, editorState.cursor, ["BlockStatement", "Program"]);
-    // find the smallest span of siblings that contain both cursors
-    var body = parentNode.body;
-    // find start location
-    var startCursor = null;
-    for (var i = 0; i < body.length; i++) {
-        var nodeCursors = getNodeLoc(body[i]);
-        if (isBefore(editorState.cursor[0], nodeCursors[0])) {
-            if (i === 0) {
-                startCursor = makeCursor(1, 0);
-            } else {
-                startCursor = makeCursor(getNodeLoc(body[i - 1])[1].lineNumber + 1, 0);
-            }
-            break
-        } else if (isBefore(editorState.cursor[0], nodeCursors[1])) {
-            startCursor = makeCursor(nodeCursors[0].lineNumber, 0);
-            break;
-        }
-    }
-    // find end location
-    var endCursor = null;
-    for (var i = body.length - 1; i >= 0; i--) {
-        var nodeCursors = getNodeLoc(body[i]);
-        if (isBefore(editorState.cursor[1], nodeCursors[0])) {
-            if (i === 0) {
-                endCursor = makeCursor(1, Infinity);
-            } else {
-                endCursor = makeCursor(getNodeLoc(body[i - 1])[1].lineNumber, Infinity);
-            }
-            break
-        } else if (isBefore(editorState.cursor[1], nodeCursors[1])) {
-            endCursor = makeCursor(nodeCursors[1].lineNumber, Infinity);
-            break;
-        }
-    }
+    var siblingCursors = findClosestSiblingCursors(editorState.parse, editorState.cursor);
+    var startCursor = siblingCursors[0];
+    var endCursor = siblingCursors[1];
     // map to post-edit cursors
     endCursor.lineNumber -= editorState.text.split("\n").length - editor.getValue().split("\n").length ;
     endCursor.column = getLine(editor.getValue(), endCursor.lineNumber - 1).length;
-
+    // change editorState and highlight
     editorState.editableRegions = [ [startCursor, endCursor] ];
     highlightEditable(startCursor, endCursor);
-    console.log(editorState.editableRegions[0]);
 }
 
 /**
@@ -980,6 +946,52 @@ function findClosestCommonParent(ast, cursors, nodeTypes) {
  */
 function findClosestParent(ast, cursor, nodeTypes) {
     return findClosestCommonParent(ast, [cursor], nodeTypes);
+}
+
+/**
+ * Find the smallest span of siblings that contain both cursors
+ *
+ * @param {AST} ast - The root of the AST to search through.
+ * @param {[Cursor]} cursors - A list of cursors.
+ * @returns {[Cursor]} - A list of two cursors that span sibling nodes.
+ */
+function findClosestSiblingCursors(ast, cursors) {
+    var parentNode = findClosestCommonParent(ast, cursors, ["BlockStatement", "Program"]);
+    // find the smallest span of siblings that contain both cursors
+    var body = parentNode.body;
+    // find start location
+    var startCursor = null;
+    for (var i = 0; i < body.length; i++) {
+        var nodeCursors = getNodeLoc(body[i]);
+        if (isBefore(cursors[0], nodeCursors[0])) {
+            if (i === 0) {
+                startCursor = makeCursor(1, 0);
+            } else {
+                startCursor = makeCursor(getNodeLoc(body[i - 1])[1].lineNumber + 1, 0);
+            }
+            break
+        } else if (isBefore(cursors[0], nodeCursors[1])) {
+            startCursor = makeCursor(nodeCursors[0].lineNumber, 0);
+            break;
+        }
+    }
+    // find end location
+    var endCursor = null;
+    for (var i = body.length - 1; i >= 0; i--) {
+        var nodeCursors = getNodeLoc(body[i]);
+        if (isBefore(cursors[1], nodeCursors[0])) {
+            if (i === 0) {
+                endCursor = makeCursor(1, Infinity);
+            } else {
+                endCursor = copyCursor(getNodeLoc(body[i - 1])[1]);
+            }
+            break
+        } else if (isBefore(cursors[1], nodeCursors[1])) {
+            endCursor = copyCursor(nodeCursors[1]);
+            break;
+        }
+    }
+    return [startCursor, endCursor];
 }
 
 /**

@@ -514,7 +514,7 @@ function revertAction() {
 }
 
 /**
- * Handle an actual backspace.
+ * Handle the actual backspacing on a cursor.
  *
  * @returns {undefined}
  */
@@ -536,7 +536,7 @@ function doCursorBackspace() {
 }
 
 /**
- * Handle an backspace deletion
+ * Handle the actual deleting on a cursor.
  *
  * @returns {undefined}
  */

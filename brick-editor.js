@@ -1,7 +1,7 @@
 /* global require, module, editor, editorState, blockDict, monaco */
 
 var BLOCK_DELETE_TYPES = [
-    "IfStatement", 
+    "IfStatement",
     "ForStatement",
     "FunctionDeclaration",
     "WhileStatement",
@@ -42,14 +42,14 @@ function onCursorType() {
         var ast = attemptParse(editor.getValue());
         if (editorState.parsable) {
             if (!ast) {
-            setSingleLineEditableRegion(1);
+                setSingleLineEditableRegion(1);
             }
         } else {
             if (ast) {
-            makeAllEditable();
+                makeAllEditable();
             } else {
                 var editableRegion = editorState.editableRegions[0];
-            // update the editable region if the new character is on the end line
+                // update the editable region if the new character is on the end line
                 var lineDiff = editor.getValue().split("\n").length - editorState.text.split("\n").length;
                 if (lineDiff) {
                     var line = getLine(editor.getValue(), editableRegion[1].lineNumber + lineDiff - 1);
@@ -285,7 +285,7 @@ function updateEditorState() {
             editorState.openParenthesis = null;
             editorState.closeParenthesis = null;
         }
-    } else { 
+    } else {
         editorState.parsable = false;
         document.getElementById("parseButton").disabled = false;
     }
@@ -342,7 +342,7 @@ function setSingleLineEditableRegion(adjustment) {
 /**
  * Adjusts an editable region.
  *
- * @param {int} index - the index of the editable region 
+ * @param {int} index - the index of the editable region
  * @param {int} startLine - amount to move the start line
  * @param {int} startColumn - amount to move the start column
  * @param {int} endLine - amount to move the end line
@@ -409,7 +409,7 @@ function cursorInEditableRegion(cursor) {
  *
  **************************************/
 
-/** 
+/**
  * Revert the buffer value to the last parsable state
  *
  * @returns {undefined}
@@ -419,7 +419,7 @@ function revertToParsed() { // eslint-disable-line no-unused-vars
     unhighlight();
     makeAllEditable();
     updateEditorState();
-} 
+}
 
 /**
  * Revert to before the current action
@@ -515,15 +515,15 @@ function deleteBlock(ast, node) {
  *
  **************************************/
 
-/** 
- * Flashes the editor background for 100 ms 
- * 
- * @returns {undefined} 
+/**
+ * Flashes the editor background for 100 ms
+ *
+ * @returns {undefined}
  */
 function flash() {
     monaco.editor.setTheme("flash");
     setTimeout(function () { monaco.editor.setTheme("normal"); }, 100);
-} 
+}
 
 /**
  * Highlights editor text based on start/end lineNumbers and start/end columns
@@ -1175,7 +1175,7 @@ function getSurroundingProtectedBrace(buffer, ast, cursor) {
 
 /**
  * Split a string into sections delimited by Cursors.
- * 
+ *
  * @param {string} buffer - A string of text from the editor.
  * @param {[Cursor]} cursors - Non-empty list of cursors.
  * @returns {[string]} - List of sections of the original string.
@@ -1244,12 +1244,12 @@ function positionFromStart(buffer, cursor) {
  * @returns {string} Position of cursor from end of buffer
  */
 function positionFromEnd(buffer, cursor) {
-    var splitBuffer = buffer.split("\n");        
-    var lastPart = splitBuffer.slice(cursor.lineNumber); 
-    var sameLine = splitBuffer.slice(cursor.lineNumber - 1, cursor.lineNumber).join(""); 
-    sameLine = sameLine.split("");               
+    var splitBuffer = buffer.split("\n");
+    var lastPart = splitBuffer.slice(cursor.lineNumber);
+    var sameLine = splitBuffer.slice(cursor.lineNumber - 1, cursor.lineNumber).join("");
+    sameLine = sameLine.split("");
     sameLine = sameLine.slice(cursor.column).join("");
-    lastPart.unshift(sameLine);                                
+    lastPart.unshift(sameLine);
 
     return lastPart.join("").length;
 }
@@ -1413,16 +1413,16 @@ function setSelection(startCursor, endCursor) {
     });
 }
 
-/** 
+/**
  * Set value of editor using executeEdits to preserve undo stack
  *
  * @param {string} newBuffer - String replacing oldBuffer.
  * @returns {undefined}
 */
 function setValue(newBuffer) {
-    // get range of editor model 
+    // get range of editor model
     var range = editor.getModel().getFullModelRange();
-    // call execute edits on the editor 
+    // call execute edits on the editor
     editor.executeEdits(editor.getValue(), [{ identifier: "insert", range: range, text: newBuffer }]);
 }
 

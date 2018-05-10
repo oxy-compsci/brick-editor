@@ -265,6 +265,12 @@ function updateEditorState() {
     if (editorState.editableRegions.length === 0) {
         makeAllEditable();
         editorState.inParenthesis = false;
+    } else if (highlightedEditable) {
+        unhighlight();
+        for (var i = 0; i < editorState.editableRegions.length; i++) {
+            var editableRegion = editorState.editableRegions[i];
+            highlightEditable(editableRegion[0], editableRegion[1]);
+        }
     }
 
     if (ast) {
@@ -275,6 +281,7 @@ function updateEditorState() {
         editorState.parse = ast;
         editorState.parsableText = buffer;
         document.getElementById("parseButton").disabled = true;
+        makeAllEditable();
         // save positions of parentheses
         var parentheses = getSurroundingProtectedParen(buffer, ast, cursor);
         editorState.parentheses = parentheses;

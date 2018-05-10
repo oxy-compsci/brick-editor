@@ -532,7 +532,8 @@ function doCursorBackspace() {
     var ast = attemptParse(buffer);
     if (cursorAtEndOfBlock(ast, cursor, BLOCK_DELETE_TYPES)) {
         var node = findClosestDeletableBlock(ast, cursor);
-        highlightAndDelete(ast, node);
+        var cursors = getNodeLoc(node);
+        highlightAndDelete(ast, cursors[0], cursors[1]);
     } else if (spansProtectedPunctuation(buffer, ast, [oneBack, cursor])) {
         // ignore the backspace if it will remove a syntax parenthesis or brace
         flash(); 
@@ -553,7 +554,8 @@ function doCursorDelete() {
     var ast = attemptParse(buffer);
     if (cursorAtStartOfBlock(ast, cursor, BLOCK_DELETE_TYPES)) {
         var node = findClosestDeletableBlock(ast, cursor);
-        highlightAndDelete(ast, node);
+        var cursors = getNodeLoc(node);
+        highlightAndDelete(ast, cursors[0], cursors[1]);
     } else if (spansProtectedPunctuation(buffer, ast, [cursor, oneAhead])) {
         // ignore the delete if it will remove a syntax parenthesis or brace
         flash(); 
@@ -680,14 +682,12 @@ function unhighlight() {
  * @param {AST} node - The node to delete
  * @returns {undefined}
  */
-function highlightAndDelete(ast, node) {
-    var nodeCursors = getNodeLoc(node);
-    var startCursor = nodeCursors[0];
-    var endCursor = nodeCursors[1];
+function highlightAndDelete(ast, startCursor, endCursor) {
     if (highlightedPreDelete) {
-        // TODO cursor is off due to auto-reformatting
-        setCursor(highlightedPreDelete[0]);
-        setValue(deleteBlock(ast, node));
+        // FIXME cursor is off due to auto-reformatting
+        var sections = splitAtCursors(editor.getValue(), [startCursor, endCursor]);
+        setValue(sections[0] + sections[2]);
+        setCursor(startCursor);
         unhighlight();
     } else {
         highlightPreDelete(startCursor, endCursor);

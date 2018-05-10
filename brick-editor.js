@@ -428,7 +428,11 @@ function revertToParsed() { // eslint-disable-line no-unused-vars
  */
 function revertAction() {
     setValue(editorState.text);
-    setCursor(editorState.cursor);
+    if (editorState.hasSelected) {
+        setSelection(editorState.cursor[0], editorState.cursor[1]);
+    } else {
+        setCursor(editorState.cursor);
+    }
     flash();
 }
 

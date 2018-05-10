@@ -1,4 +1,4 @@
-/* global require, monaco, editor, deleteHandler, backspaceHandler, onDidChangeCursorSelection, blockDict */
+/* global require, monaco, editor, deleteHandler, backspaceHandler, onDidChangeCursorSelection, blockDict, updateEditorState */
 
 // create monaco editor
 require.config({

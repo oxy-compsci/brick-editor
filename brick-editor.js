@@ -1,5 +1,7 @@
 /* global require, module, editor, editorState, blockDict, monaco */
 
+// FIXME convert functions to either take a two cursors or a single "selection"
+
 var BLOCK_DELETE_TYPES = [
     "IfStatement",
     "ForStatement",
@@ -32,7 +34,6 @@ var highlightedEditable = false;
  * @returns {undefined}
  */
 function onCursorType() {
-    console.log("onCursorType");
     var index = findCursorEditableRegionIndex(editorState.cursor);
     // if the new character is not in an editable region, revert it
     if (index === null) {
@@ -72,7 +73,6 @@ function onCursorType() {
  * @returns {undefined}
  */
 function onCursorBackspace() {
-    console.log("onCursorBackspace");
     var index = findCursorEditableRegionIndex(editorState.cursor);
     // The backspace should not happen if:
     // * The cursor not in an editable region
@@ -116,7 +116,6 @@ function onCursorBackspace() {
  * @returns {undefined}
  */
 function onCursorDelete() {
-    console.log("onCursorDelete");
     var index = findCursorEditableRegionIndex(editorState.cursor);
     // The delete should not happen if:
     // * The cursor not in an editable region
@@ -160,7 +159,6 @@ function onCursorDelete() {
  * @returns {undefined}
  */
 function onSelectionType() {
-    console.log("onSelectionType()");
     var selection = editorState.cursor;
     // if the selection character is not in an editable region, revert it
     if (!selectionInEditableRegion(selection[0], selection[1])) {
@@ -186,7 +184,6 @@ function onSelectionType() {
                 } else if (editorState.cursor.lineNumber === editableRegion[1].lineNumber) {
                     adjustEditableRegion(0, 0, 0, 0, 1);
                 }
-                console.log(editorState.editableRegions[0][1]);
             }
         }
     }
@@ -201,7 +198,6 @@ function onSelectionType() {
  * @returns {undefined}
  */
 function onSelectionDelete() {
-    console.log("onSelectionDelete");
     var selection = editorState.cursor;
     // if the selection character is not in an editable region, revert it
     if (!selectionInEditableRegion(selection[0], selection[1])) {
@@ -210,7 +206,7 @@ function onSelectionDelete() {
         if (editorState.parsable) {
             doSelectionDelete();
             if (!attemptParse(editor.getValue())) {
-                setMultiLineEditableRegion()
+                setMultiLineEditableRegion();
             }
         } else {
             if (attemptParse(editor.getValue())) {
@@ -240,7 +236,6 @@ function onSelectionDelete() {
  * @returns {undefined}
  */
 function onSelectionCut() {
-    console.log("onSelectionCut");
     updateEditorState();
 }
 
@@ -252,7 +247,6 @@ function onSelectionCut() {
  * @returns {undefined}
  */
 function onCursorPaste() {
-    console.log("onCursorPaste");
     updateEditorState();
 }
 
@@ -264,7 +258,6 @@ function onCursorPaste() {
  * @returns {undefined}
  */
 function onSelectionPaste() {
-    console.log("onSelectionPaste");
     updateEditorState();
 }
 
@@ -275,7 +268,7 @@ function onSelectionPaste() {
  *
  * @returns {undefined}
  */
-function onMouseDrag() {}
+function onMouseDrag() {} // eslint-disable-line no-unused-vars
 
 /**************************************
  *
@@ -390,6 +383,11 @@ function setSingleLineEditableRegion(adjustment) {
     highlightEditable(startCursor, endCursor);
 }
 
+/**
+ * Sets the editable region to multiple line.
+ *
+ * @returns {undefined}
+ */
 function setMultiLineEditableRegion() {
     var siblingCursors = findClosestSiblingCursors(editorState.parse, editorState.cursor);
     var startCursor = siblingCursors[0];
@@ -442,21 +440,6 @@ function findCursorEditableRegionIndex(cursor) {
 }
 
 /**
- * Find the editable region that contains the cursor.
- *
- * @param {Cursor} cursor - the cursor location
- * @returns {int} - the index, or null
- */
-function findCursorEditableRegion(cursor) {
-    var index = findCursorEditableRegionIndex(cursor);
-    if (index === null) {
-        return null;
-    } else {
-        return editorState.editableRegions[index];
-    }
-}
-
-/**
  * Determine if the cursor is in any editable region.
  *
  * @param {Cursor} cursor - the cursor location
@@ -485,6 +468,8 @@ function selectionInEditableRegion(startCursor, endCursor) {
  * SECTION: HIGH-LEVEL ACTIONS
  *
  **************************************/
+
+// FIXME update state on undo
 
 /**
  * Revert the buffer value to the last parsable state
@@ -564,7 +549,6 @@ function doCursorDelete() {
  */
 function doSelectionDelete() {
     var buffer = editor.getValue();
-    var selection = getSelection();
     var ast = attemptParse(buffer);
     var siblingCursors = findClosestSiblingCursors(ast, getSelection());
     // FIXME unclear when to just delete the selection and when to delete spanning blocks
@@ -573,24 +557,6 @@ function doSelectionDelete() {
     } else {
         deleteSelection(buffer, editorState.cursor);
     }
-}
-
-/**
- * Delete a node
- *
- * @param {AST} ast - The parsed text.
- * @param {node} node - The node to delete.
- * @returns {string} Text with block removed
- */
-function deleteBlock(ast, node) {
-    estraverse.replace(ast.program, {
-        leave: function (currentNode) {
-            if (currentNode === node) {
-                this.remove();
-            }
-        }
-    });
-    return recast.print(ast).code;
 }
 
 /**************************************
@@ -673,7 +639,8 @@ function unhighlight() {
  * Highlight a block or delete it if already highlighted
  *
  * @param {AST} ast - The root of the ast
- * @param {AST} node - The node to delete
+ * @param {Cursor} startCursor - the cursor marking the beginning of a region.
+ * @param {Cursor} endCursor - the cursor marking the end of a region.
  * @returns {undefined}
  */
 function highlightAndDelete(ast, startCursor, endCursor) {
@@ -802,7 +769,7 @@ function deleteCharacter(buffer, cursor) {
  * Delete the selected text
  *
  * @param {string} buffer - A string of text from the editor.
- * @returns {[Cursor]} - A list of two Cursors defining the selection.
+ * @param {[Cursor]} cursors - A list of two Cursors defining the selection.
  * @returns {undefined}
  */
 function deleteSelection(buffer, cursors) {
@@ -1000,17 +967,19 @@ function findClosestSiblingCursors(ast, cursors) {
     var parentNode = findClosestCommonParent(ast, cursors, ["BlockStatement", "Program"]);
     // find the smallest span of siblings that contain both cursors
     var body = parentNode.body;
+    var i = null;
+    var nodeCursors = null;
     // find start location
     var startCursor = null;
-    for (var i = 0; i < body.length; i++) {
-        var nodeCursors = getNodeLoc(body[i]);
+    for (i = 0; i < body.length; i++) {
+        nodeCursors = getNodeLoc(body[i]);
         if (isBefore(cursors[0], nodeCursors[0])) {
             if (i === 0) {
                 startCursor = makeCursor(1, 0);
             } else {
                 startCursor = makeCursor(getNodeLoc(body[i - 1])[1].lineNumber + 1, 0);
             }
-            break
+            break;
         } else if (isBefore(cursors[0], nodeCursors[1])) {
             startCursor = makeCursor(nodeCursors[0].lineNumber, 0);
             break;
@@ -1018,15 +987,15 @@ function findClosestSiblingCursors(ast, cursors) {
     }
     // find end location
     var endCursor = null;
-    for (var i = body.length - 1; i >= 0; i--) {
-        var nodeCursors = getNodeLoc(body[i]);
+    for (i = body.length - 1; i >= 0; i--) {
+        nodeCursors = getNodeLoc(body[i]);
         if (isBefore(cursors[1], nodeCursors[0])) {
             if (i === 0) {
                 endCursor = makeCursor(1, Infinity);
             } else {
                 endCursor = copyCursor(getNodeLoc(body[i - 1])[1]);
             }
-            break
+            break;
         } else if (isBefore(cursors[1], nodeCursors[1])) {
             endCursor = copyCursor(nodeCursors[1]);
             break;
@@ -1473,12 +1442,26 @@ function isBetweenCursors(cursor, startCursor, endCursor) {
     return isAfter(cursor, startCursor) && isBefore(cursor, endCursor);
 }
 
+/**
+ * Determine if a cursor is strictly before another.
+ *
+ * @param {Cursor} cursor1 - The first cursor.
+ * @param {Cursor} cursor2 - The second cursor.
+ * @returns {boolean} - True if the first cursor is before the second.
+ */
 function isBefore(cursor1, cursor2) {
     return (cursor1.lineNumber < cursor2.lineNumber) || (
         (cursor1.lineNumber === cursor2.lineNumber) &&
         (cursor1.column < cursor2.column));
 }
 
+/**
+ * Determine if a cursor is strictly after another.
+ *
+ * @param {Cursor} cursor1 - The first cursor.
+ * @param {Cursor} cursor2 - The second cursor.
+ * @returns {boolean} - True if the first cursor is after the second.
+ */
 function isAfter(cursor1, cursor2) {
     return (cursor1.lineNumber > cursor2.lineNumber) || (
         (cursor1.lineNumber === cursor2.lineNumber) &&
@@ -1560,7 +1543,7 @@ function setSelection(startCursor, endCursor) {
  *
  * @param {string} newBuffer - String replacing oldBuffer.
  * @returns {undefined}
-*/
+ */
 function setValue(newBuffer) {
     // get range of editor model
     var range = editor.getModel().getFullModelRange();

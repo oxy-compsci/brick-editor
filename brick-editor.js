@@ -664,7 +664,7 @@ function onDidChangeCursorSelection(e) { // eslint-disable-line no-unused-vars
             if (!editorState.hasSelected) { // typed at cursor
                 onCursorType();
             } else {
-                var sections = splitAtCursors(editorState.parsableText, editorState.cursor);
+                var sections = splitAtCursors(editorState.text, editorState.cursor);
                 if (editor.getValue().length > sections[0].length + sections[2].length) {
                     onSelectionType();
                 } else {

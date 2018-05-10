@@ -798,6 +798,7 @@ function backspaceCharacter(buffer, cursor) {
     } else {
         cursor.column = cursor.column - 1;
     }
+    cursor.column = getLine(buffer, cursor.lineNumber - 1).length;
     setCursor(cursor);
 }
 

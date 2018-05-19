@@ -37,3 +37,56 @@ body {
     margin: 0px auto;
     cursor: pointer;
 }
+
+.highlight {
+    background-color: #8a08b5;
+}
+
+.conditionalHighlight {
+    background-color: blue;
+}
+
+#parseButton, #parseButton:enabled {
+    border: solid black 1px;
+    background-color: red;
+    color: white;
+    font-weight: 600;
+    padding: 10px;
+    text-align: center;
+    font-size: 16px;
+    border-radius: 5px;
+    margin: 0px auto;
+    float: right;
+    cursor: pointer;
+}
+
+#parseButton:disabled {
+    background-color: grey;
+    color: white;
+    cursor: not-allowed;
+}
+
+#genericButton {
+    border: solid black 1px;
+    background-color: red;
+    color: white;
+    font-weight: 600;
+    padding: 10px;
+    text-align: center;
+    font-size: 16px;
+    border-radius: 5px;
+    margin: 0px auto;
+    float: left;
+    cursor: pointer;
+    transition-duration: 0.4s;
+}
+
+#genericButton:hover{
+    background-color: forestgreen;
+}
+
+#genericButton:active{
+    background-color: blue;
+    transform: translateY(4px);
+}
+

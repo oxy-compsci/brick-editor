@@ -8,35 +8,46 @@
     <!--
         NOTE: The JavaScript files must be loaded in this order.
 
-        The Monaco loader.js creates a require() function, which is used by
-        create-editor.js to create the editor. bundle.js then _overwrites_
-        require() to load other node modules, which are then used by our custom
-        functions in brick-editor.js. In short, the JavaScript files must be
-        loaded:
+        The Monaco loader.js and the Browserify bundle.js creates incompatible
+        versions of a require() function. Here we load the Browserify bundle.js
+        first, to define the necessary text editing functions, before loading
+        the Monaco loader.js to create the editor.
 
-        1. loader.js
-        2. create-editor.js
-        3. bundle.js
-        4. brick-editor.js
+        1. bundle.js
+        2. brick-editor.js
+        3. loader.js
+        4. create-editor.js
 
-        templates.js contains the template data used by brick-editor.js. In
-        can be loaded before bundle.js, but conceptually fits better after it.
+        templates.js contains the template data used by brick-editor.js. It
+        must be loaded before create-editor.js (which creates buttons based on
+        the templates), but otherwise can be loaded at any time.
     -->
+    <script src="templates.js"></script>
+    <script src="globals.js"></script>
+    <script src="bundle.js"></script>
+    <script src="brick-editor.js"></script>
     <script src="../node_modules/monaco-editor/min/vs/loader.js"></script>
     <script src="create-editor.js"></script>
-    <script src="bundle.js"></script>
-    <script src="templates.js"></script>
-    <script src="brick-editor.js"></script>
     <script>
         // create the clickable buttons to add block
-        window.onload = function() {
+        window.onload = function () {
             addBlocksHTML();
         };
     </script>
+    <button id="genericButton" onclick="buttonUndo()">UNDO</button>
+    <button id="genericButton" onclick="buttonRedo()">REDO</button>
+    <button id="genericButton" onclick="buttonDefaultZoom()">DEFAULT ZOOM</button>
+    <button id="genericButton" onclick="buttonZoomIn()">ZOOM IN</button>
+    <button id="genericButton" onclick="buttonZoomOut()">ZOOM OUT</button>
+    <button id="genericButton" onclick="buttonCopy()">COPY</button>
+    <button id="genericButton" onclick="buttonCut()">CUT</button>
+    <button id="genericButton" onclick="buttonPaste()">PASTE</button>
+    <br>
 </head>
 
 <body>
     <h1 id="title">Brick Editor</h1>
+    <button id="parseButton" disabled onclick="resetToParsed()">Reset to last correct text</button>
     <div id="buttonContainer"></div>
     <div id="container"></div>
 </body>

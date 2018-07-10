@@ -66,7 +66,7 @@ body {
     cursor: not-allowed;
 }
 
-#genericButton {
+.genericButton {
     border: solid black 1px;
     background-color: red;
     color: white;
@@ -81,11 +81,11 @@ body {
     transition-duration: 0.4s;
 }
 
-#genericButton:hover{
+.genericButton:hover{
     background-color: forestgreen;
 }
 
-#genericButton:active{
+.genericButton:active{
     background-color: blue;
     transform: translateY(4px);
 }

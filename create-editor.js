@@ -6,6 +6,8 @@ require.config({
         "vs": "../node_modules/monaco-editor/min/vs"
     }
 });
+
+
 require(["vs/editor/editor.main"], function () {
     var jsCode = [
         "\"use strict\";",
@@ -36,18 +38,18 @@ require(["vs/editor/editor.main"], function () {
     });
 
     monaco.editor.defineTheme("flash", {
-        base: "vs-dark", // can also be vs-dark or hc-black 
-        inherit: true, // can also be false to completely replace the builtin rules 
-        // set comment color 
+        base: "vs-dark", // can also be vs-dark or hc-black
+        inherit: true, // can also be false to completely replace the builtin rules
+        // set comment color
         rules: [
             { token: "comment.js", foreground: "ff0066", fontStyle: "bold" },
         ],
-        // set editor background color 
+        // set editor background color
         colors: {
             "editor.background": "#262673",
             "editor.lineHighlightBackground": "#800060",
         }
-    }); 
+    });
 
     // eslint-disable-next-line no-global-assign
     editor = monaco.editor.create(document.getElementById("container"), {
@@ -62,7 +64,7 @@ require(["vs/editor/editor.main"], function () {
         /* Disable allowNonTsExtensions to remove keywords from autocomplete
          * This introduces an error in the console. Unknown if this will have a negative impact when compiling.
          */
-        allowNonTsExtensions: false,      
+        allowNonTsExtensions: false,
         noLib: true
     });
 
@@ -84,4 +86,7 @@ require(["vs/editor/editor.main"], function () {
     editor.addCommand(monaco.KeyCode.Backspace, backspaceHandler);
     editor.addCommand(monaco.KeyCode.Delete, deleteHandler);
     editor.onDidChangeCursorSelection(onDidChangeCursorSelection);
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KEY_Z, AlertUndo);
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KEY_Y, AlertRedo);
+    editor.addCommand(monaco.KeyCode.LeftArrow, leftArrowHandler);
 });

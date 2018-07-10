@@ -50,6 +50,19 @@ function addBlocksHTML() { // eslint-disable-line no-unused-vars
 // EVENT HANDLERS
 
 /**
+ * Called when leftArrow key is pressed
+ *
+ * @returns {undefined}
+ */
+function leftArrowHandler() { // eslint-disable-line no-unused-vars
+    if (getSelected()) {
+        onRangeDelete();
+    } else {
+        onPointLeftArrow();
+    }
+}
+
+/**
  * Called when backspace key is pressed
  *
  * @returns {undefined}
@@ -160,6 +173,91 @@ function onPointInsert() {
     }
     updateEditorState();
 }
+
+/**
+ * Handler for leftArrow on a cursor.
+ *
+ * @returns {undefined}
+ */
+function onPointLeftArrow() {
+    console.log("on point leftArrow"); // eslint-disable-line no-console
+    var buffer = editor.getValue();
+    var cursor = getCursor();
+    if (attemptParse(buffer)) {
+        var oneBack = makeCursor(cursor.lineNumber, cursor.column - 1);
+        var ast = attemptParse(buffer);
+        if (cursorAtEndOfBlock(ast, cursor, BLOCK_DELETE_TYPES)) {
+            var node = findClosestDeletableBlock(ast, cursor);
+            if (highlighted) {
+                if (cursor.column === 0) { //cursor movement in different scenarios
+                    cursor.lineNumber -= 1;
+                    cursor.column = Infinity;
+                } else {
+                    cursor.column = cursor.column - 1;
+                }
+                setCursor(cursor);
+                unhighlight();
+            } else {
+                highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
+            }
+        } else if (spansProtectedPunctuation(buffer, ast, [oneBack, cursor])) {
+            if (cursor.column === 0) {
+                cursor.lineNumber -= 1;
+                cursor.column = Infinity;
+            } else {
+                cursor.column = cursor.column - 1;
+            }
+            setCursor(cursor);
+        } else {
+            if (cursor.column === 0) {
+                cursor.lineNumber -= 1;
+                cursor.column = Infinity;
+            } else {
+                cursor.column = cursor.column - 1;
+            }
+            setCursor(cursor);
+        }
+    } else if (cursor.lineNumber == editorState.cursor.lineNumber) { // if unparsable but on same line
+        // if cursor was inside () at last parsable state
+        if (editorState.openParenthesis && editorState.closeParenthesis) {
+            if (positionFromStart(buffer, cursor) - 1 == editorState.openParenthesis) {
+                if (cursor.column === 0) {
+                    cursor.lineNumber -= 1;
+                    cursor.column = Infinity;
+                } else {
+                    cursor.column = cursor.column - 1;
+                }
+                setCursor(cursor);
+            } else if (positionFromStart(buffer, cursor) <= editorState.openParenthesis || positionFromEnd(buffer, cursor) <= editorState.closeParenthesis) {
+                if (cursor.column === 0) {
+                    cursor.lineNumber -= 1;
+                    cursor.column = Infinity;
+                } else {
+                    cursor.column = cursor.column - 1;
+                }
+                setCursor(cursor);
+            } else {
+                if (cursor.column === 0) {
+                    cursor.lineNumber -= 1;
+                    cursor.column = Infinity;
+                } else {
+                    cursor.column = cursor.column - 1;
+                }
+                setCursor(cursor);
+            }
+        } else {
+            if (cursor.column === 0) {
+                cursor.lineNumber -= 1;
+                cursor.column = Infinity;
+            } else {
+                cursor.column = cursor.column - 1;
+            }
+            setCursor(cursor);
+        }
+    }
+    updateEditorState();
+}
+
 
 /**
  * Handler for backspace on a cursor.
@@ -314,12 +412,38 @@ function resetToParsed() { // eslint-disable-line no-unused-vars
     setValue(editorState.parsableText);
 }
 
+
+/**
+ * Alerts when user redo with pop up
+ *
+ * @returns {undefined}
+ */
+function AlertRedo(){
+    alert("You just redid");
+    setValue(editor.getModel().redo());
+    updateEditorState();
+}
+
+/**
+ * Alerts when user undo with pop up
+ *
+ * @returns {undefined}
+ */
+function AlertUndo(){
+    alert("You just undid");
+    setValue(editor.getModel().undo());
+    updateEditorState();
+}
+
+
 /**
  * Undo function
  * @returns {undefined}
  */
 function buttonUndo(){
+    alert("You just undid");
     setValue(editor.getModel().undo());
+    updateEditorState();
 }
 
 /**
@@ -328,7 +452,9 @@ function buttonUndo(){
  * @returns {undefined}
  */
 function buttonRedo(){
+    alert("You just Redid");
     setValue(editor.getModel().redo());
+    updateEditorState();
 }
 
 /**
@@ -338,6 +464,7 @@ function buttonRedo(){
  */
 function buttonZoomIn(){
     editor.updateOptions({fontSize: 30 });
+    updateEditorState();
 }
 
 /**
@@ -347,6 +474,7 @@ function buttonZoomIn(){
  */
 function buttonZoomOut(){
     editor.updateOptions({fontSize: 10 });
+    updateEditorState();
 }
 
 /**
@@ -356,6 +484,7 @@ function buttonZoomOut(){
  */
 function buttonDefaultZoom(){
     editor.updateOptions({fontSize: 14 });
+    updateEditorState();
 }
 
 /**
@@ -364,7 +493,8 @@ function buttonDefaultZoom(){
  * @returns {undefined}
  */
 function buttonCopy(){
-    document.execCommand('copy', false);
+    document.execCommand("Copy", false);
+    updateEditorState();
 }
 
 /**
@@ -373,7 +503,8 @@ function buttonCopy(){
  * @returns {undefined}
  */
 function buttonCut(){
-    document.execCommand('Cut', false);
+    document.execCommand("Cut", false);
+    updateEditorState();
 }
 
 /**
@@ -382,7 +513,8 @@ function buttonCut(){
  * @returns {undefined}
  */
 function buttonPaste(){
-    document.execCommand('Paste', data);
+    document.execCommand("Paste", false);
+    updateEditorState();
 }
 
 

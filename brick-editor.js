@@ -1179,6 +1179,7 @@ function onDidChangeCursorSelection(e) { // eslint-disable-line no-unused-vars
     }
     if (e.source === "mouse") {
         updateEditorState();
+        leftArrowHandler();
     } else if (e.source === "keyboard") {
         if (e.reason === 4) { // pasted
             if (editorState.hasSelected) {

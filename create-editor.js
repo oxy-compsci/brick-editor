@@ -89,4 +89,5 @@ require(["vs/editor/editor.main"], function () {
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KEY_Z, AlertUndo);
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KEY_Y, AlertRedo);
     editor.addCommand(monaco.KeyCode.LeftArrow, leftArrowHandler);
+    editor.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.LeftArrow, leftArrowHandler)
 });

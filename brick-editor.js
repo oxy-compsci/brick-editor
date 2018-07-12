@@ -418,7 +418,7 @@ function resetToParsed() { // eslint-disable-line no-unused-vars
  *
  * @returns {undefined}
  */
-function AlertRedo(){
+function AlertRedo(){ // eslint-disable-line no-unused-vars
     alert("You just redid");
     setValue(editor.getModel().redo());
     updateEditorState();
@@ -429,7 +429,7 @@ function AlertRedo(){
  *
  * @returns {undefined}
  */
-function AlertUndo(){
+function AlertUndo(){ // eslint-disable-line no-unused-vars
     alert("You just undid");
     setValue(editor.getModel().undo());
     updateEditorState();
@@ -440,7 +440,7 @@ function AlertUndo(){
  * Undo function
  * @returns {undefined}
  */
-function buttonUndo(){
+function buttonUndo(){ // eslint-disable-line no-unused-vars
     alert("You just undid");
     setValue(editor.getModel().undo());
     updateEditorState();
@@ -451,7 +451,7 @@ function buttonUndo(){
  *
  * @returns {undefined}
  */
-function buttonRedo(){
+function buttonRedo(){ // eslint-disable-line no-unused-vars
     alert("You just Redid");
     setValue(editor.getModel().redo());
     updateEditorState();
@@ -462,7 +462,7 @@ function buttonRedo(){
  *
  * @returns {undefined}
  */
-function buttonZoomIn(){
+function buttonZoomIn(){ // eslint-disable-line no-unused-vars
     editor.updateOptions({fontSize: 30 });
     updateEditorState();
 }
@@ -472,7 +472,7 @@ function buttonZoomIn(){
  *
  * @returns {undefined}
  */
-function buttonZoomOut(){
+function buttonZoomOut(){ // eslint-disable-line no-unused-vars
     editor.updateOptions({fontSize: 10 });
     updateEditorState();
 }
@@ -482,7 +482,7 @@ function buttonZoomOut(){
  *
  * @returns {undefined}
  */
-function buttonDefaultZoom(){
+function buttonDefaultZoom(){ // eslint-disable-line no-unused-vars
     editor.updateOptions({fontSize: 14 });
     updateEditorState();
 }
@@ -492,7 +492,7 @@ function buttonDefaultZoom(){
  *
  * @returns {undefined}
  */
-function buttonCopy(){
+function buttonCopy(){ // eslint-disable-line no-unused-vars
     document.execCommand("Copy", false);
     updateEditorState();
 }
@@ -502,7 +502,7 @@ function buttonCopy(){
  *
  * @returns {undefined}
  */
-function buttonCut(){
+function buttonCut(){ // eslint-disable-line no-unused-vars
     document.execCommand("Cut", false);
     updateEditorState();
 }
@@ -512,7 +512,7 @@ function buttonCut(){
  *
  * @returns {undefined}
  */
-function buttonPaste(){
+function buttonPaste(){ // eslint-disable-line no-unused-vars
     document.execCommand("Paste", false);
     updateEditorState();
 }

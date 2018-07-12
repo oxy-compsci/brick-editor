@@ -86,8 +86,12 @@ require(["vs/editor/editor.main"], function () {
     editor.addCommand(monaco.KeyCode.Backspace, backspaceHandler);
     editor.addCommand(monaco.KeyCode.Delete, deleteHandler);
     editor.onDidChangeCursorSelection(onDidChangeCursorSelection);
+    // eslint-disable-next-line no-undef
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KEY_Z, AlertUndo);
+    // eslint-disable-next-line no-undef
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KEY_Y, AlertRedo);
+    // eslint-disable-next-line no-undef
     editor.addCommand(monaco.KeyCode.LeftArrow, leftArrowHandler);
+    // eslint-disable-next-line no-undef
     editor.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.LeftArrow, leftArrowHandler);
 });

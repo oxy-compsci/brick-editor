@@ -1,7 +1,7 @@
 /* global require, module, editor, editorState, blockDict, monaco */
 
 var BLOCK_DELETE_TYPES = [
-    "IfStatement", 
+    "IfStatement",
     "ForStatement",
     "FunctionDeclaration",
     "WhileStatement",
@@ -48,6 +48,19 @@ function addBlocksHTML() { // eslint-disable-line no-unused-vars
 }
 
 // EVENT HANDLERS
+
+/**
+ * Called when leftArrow key is pressed
+ *
+ * @returns {undefined}
+ */
+function leftArrowHandler() { // eslint-disable-line no-unused-vars
+    if (getSelected()) {
+        onRangeDelete();
+    } else {
+        onPointLeftArrow();
+    }
+}
 
 /**
  * Called when backspace key is pressed
@@ -162,6 +175,91 @@ function onPointInsert() {
 }
 
 /**
+ * Handler for leftArrow on a cursor.
+ *
+ * @returns {undefined}
+ */
+function onPointLeftArrow() {
+    console.log("on point leftArrow"); // eslint-disable-line no-console
+    var buffer = editor.getValue();
+    var cursor = getCursor();
+    if (attemptParse(buffer)) {
+        var oneBack = makeCursor(cursor.lineNumber, cursor.column - 1);
+        var ast = attemptParse(buffer);
+        if (cursorAtEndOfBlock(ast, cursor, BLOCK_DELETE_TYPES)) {
+            var node = findClosestDeletableBlock(ast, cursor);
+            if (highlighted) {
+                if (cursor.column === 0) { //cursor movement in different scenarios
+                    cursor.lineNumber -= 1;
+                    cursor.column = Infinity;
+                } else {
+                    cursor.column = cursor.column - 1;
+                }
+                setCursor(cursor);
+                unhighlight();
+            } else {
+                highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
+            }
+        } else if (spansProtectedPunctuation(buffer, ast, [oneBack, cursor])) {
+            if (cursor.column === 0) {
+                cursor.lineNumber -= 1;
+                cursor.column = Infinity;
+            } else {
+                cursor.column = cursor.column - 1;
+            }
+            setCursor(cursor);
+        } else {
+            if (cursor.column === 0) {
+                cursor.lineNumber -= 1;
+                cursor.column = Infinity;
+            } else {
+                cursor.column = cursor.column - 1;
+            }
+            setCursor(cursor);
+        }
+    } else if (cursor.lineNumber == editorState.cursor.lineNumber) { // if unparsable but on same line
+        // if cursor was inside () at last parsable state
+        if (editorState.openParenthesis && editorState.closeParenthesis) {
+            if (positionFromStart(buffer, cursor) - 1 == editorState.openParenthesis) {
+                if (cursor.column === 0) {
+                    cursor.lineNumber -= 1;
+                    cursor.column = Infinity;
+                } else {
+                    cursor.column = cursor.column - 1;
+                }
+                setCursor(cursor);
+            } else if (positionFromStart(buffer, cursor) <= editorState.openParenthesis || positionFromEnd(buffer, cursor) <= editorState.closeParenthesis) {
+                if (cursor.column === 0) {
+                    cursor.lineNumber -= 1;
+                    cursor.column = Infinity;
+                } else {
+                    cursor.column = cursor.column - 1;
+                }
+                setCursor(cursor);
+            } else {
+                if (cursor.column === 0) {
+                    cursor.lineNumber -= 1;
+                    cursor.column = Infinity;
+                } else {
+                    cursor.column = cursor.column - 1;
+                }
+                setCursor(cursor);
+            }
+        } else {
+            if (cursor.column === 0) {
+                cursor.lineNumber -= 1;
+                cursor.column = Infinity;
+            } else {
+                cursor.column = cursor.column - 1;
+            }
+            setCursor(cursor);
+        }
+    }
+    updateEditorState();
+}
+
+
+/**
  * Handler for backspace on a cursor.
  *
  * @returns {undefined}
@@ -183,8 +281,8 @@ function onPointBackspace() {
             }
         } else if (spansProtectedPunctuation(buffer, ast, [oneBack, cursor])) {
             // ignore the backspace if it's something important
-            // flash editor screen 
-            flash(); 
+            // flash editor screen
+            flash();
         } else {
             charBackspaceBranch(buffer, cursor);
         }
@@ -234,15 +332,15 @@ function onPointDelete() {
             }
         } else if (spansProtectedPunctuation(buffer, ast, [cursor, oneAhead])) {
             // ignore the delete if it's something important
-            // flash editor screen 
-            flash(); 
+            // flash editor screen
+            flash();
         } else {
             charDeleteBranch(buffer, cursor);
         }
     } else if (cursor.lineNumber == editorState.cursor.lineNumber) { // if unparsable but on same line
-        // if inside parentheses when became unparsable 
+        // if inside parentheses when became unparsable
         if (editorState.openParenthesis && editorState.closeParenthesis) {
-            if (positionFromEnd(buffer, cursor) - 1 == editorState.closeParenthesis) { // if directly to left of ) 
+            if (positionFromEnd(buffer, cursor) - 1 == editorState.closeParenthesis) { // if directly to left of )
                 // ignore delete if parenthesis
                 flash();
             } else if (positionFromStart(buffer, cursor) <= editorState.openParenthesis || positionFromEnd(buffer, cursor) <= editorState.closeParenthesis) { // if left of ( or right of )
@@ -287,32 +385,137 @@ function onRangeDelete() {
             unhighlight();
         } else {
             highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
-        } 
+        }
     }
     updateEditorState();
 }
 
-/** 
+/**
  * Set value of editor using executeEdits to preserve undo stack
  *
  * @param {string} newBuffer - String replacing oldBuffer.
  * @returns {undefined}
 */
 function setValue(newBuffer) {
-    // get range of editor model 
+    // get range of editor model
     var range = editor.getModel().getFullModelRange();
-    // call execute edits on the editor 
+    // call execute edits on the editor
     editor.executeEdits(editor.getValue(), [{ identifier: "insert", range: range, text: newBuffer }]);
 }
 
-/** 
+/**
  * Resets the buffer value to the last correct parsed state
  *
  * @returns {undefined}
  */
 function resetToParsed() { // eslint-disable-line no-unused-vars
     setValue(editorState.parsableText);
-} 
+}
+
+
+/**
+ * Alerts when user redo with pop up
+ *
+ * @returns {undefined}
+ */
+function AlertRedo(){ // eslint-disable-line no-unused-vars
+    alert("You just redid");
+    setValue(editor.getModel().redo());
+    updateEditorState();
+}
+
+/**
+ * Alerts when user undo with pop up
+ *
+ * @returns {undefined}
+ */
+function AlertUndo(){ // eslint-disable-line no-unused-vars
+    alert("You just undid");
+    setValue(editor.getModel().undo());
+    updateEditorState();
+}
+
+
+/**
+ * Undo function
+ * @returns {undefined}
+ */
+function buttonUndo(){ // eslint-disable-line no-unused-vars
+    alert("You just undid");
+    setValue(editor.getModel().undo());
+    updateEditorState();
+}
+
+/**
+ * Redo function
+ *
+ * @returns {undefined}
+ */
+function buttonRedo(){ // eslint-disable-line no-unused-vars
+    alert("You just Redid");
+    setValue(editor.getModel().redo());
+    updateEditorState();
+}
+
+/**
+ * Zoom in function
+ *
+ * @returns {undefined}
+ */
+function buttonZoomIn(){ // eslint-disable-line no-unused-vars
+    editor.updateOptions({fontSize: 30 });
+    updateEditorState();
+}
+
+/**
+ * Zoom out function
+ *
+ * @returns {undefined}
+ */
+function buttonZoomOut(){ // eslint-disable-line no-unused-vars
+    editor.updateOptions({fontSize: 10 });
+    updateEditorState();
+}
+
+/**
+ * Default zoom function
+ *
+ * @returns {undefined}
+ */
+function buttonDefaultZoom(){ // eslint-disable-line no-unused-vars
+    editor.updateOptions({fontSize: 14 });
+    updateEditorState();
+}
+
+/**
+ * Copy function
+ *
+ * @returns {undefined}
+ */
+function buttonCopy(){ // eslint-disable-line no-unused-vars
+    document.execCommand("Copy", false);
+    updateEditorState();
+}
+
+/**
+ * Cut function
+ *
+ * @returns {undefined}
+ */
+function buttonCut(){ // eslint-disable-line no-unused-vars
+    document.execCommand("Cut", false);
+    updateEditorState();
+}
+
+/**
+ * Paste function
+ *
+ * @returns {undefined}
+ */
+function buttonPaste(){ // eslint-disable-line no-unused-vars
+    document.execCommand("Paste", false);
+    updateEditorState();
+}
 
 
 // EDITOR INTERFACE CODE
@@ -408,16 +611,16 @@ function unhighlight() {
     highlighted = false;
 }
 
-/** 
- * Flashes the editor background for 100 ms 
- * 
- * @returns {undefined} 
+/**
+ * Flashes the editor background for 100 ms
+ *
+ * @returns {undefined}
  */
 function flash() {
     monaco.editor.setTheme("flash");
     setTimeout(function () { monaco.editor.setTheme("normal"); }, 100);
 
-} 
+}
 
 /**
  * Highlights from opening parenthesis to closed parenthesis, inclusive
@@ -904,7 +1107,7 @@ function getSurroundingProtectedBrace(buffer, ast, cursor) {
 
 /**
  * Split a string into sections delimited by Cursors.
- * 
+ *
  * @param {string} buffer - A string of text from the editor.
  * @param {[Cursor]} cursors - Non-empty list of cursors.
  * @returns {[string]} - List of sections of the original string.
@@ -962,11 +1165,11 @@ function onDidChangeCursorSelection(e) { // eslint-disable-line no-unused-vars
     var selection = e.selection;
     console.log("    [" +
         selection.startLineNumber
-        + ":" + 
+        + ":" +
         selection.startColumn
-        + ", " + 
+        + ", " +
         selection.endLineNumber
-        + ":" + 
+        + ":" +
         selection.endColumn
         + "]"
     );
@@ -976,6 +1179,7 @@ function onDidChangeCursorSelection(e) { // eslint-disable-line no-unused-vars
     }
     if (e.source === "mouse") {
         updateEditorState();
+        leftArrowHandler();
     } else if (e.source === "keyboard") {
         if (e.reason === 4) { // pasted
             if (editorState.hasSelected) {
@@ -1053,7 +1257,7 @@ function updateEditorState() {
             editorState.cursor = getCursor();
             editorState.sections = splitAtCursors(buffer, [editorState.cursor]);
         }
-    } else { 
+    } else {
         editorState.parsable = false;
         // if on same line
         if (cursor.lineNumber == editorState.cursor.lineNumber) {
@@ -1093,12 +1297,12 @@ function positionFromStart(buffer, cursor) {
  * @returns {string} Position of cursor from end of buffer
  */
 function positionFromEnd(buffer, cursor) {
-    var splitBuffer = buffer.split("\n");        
-    var lastPart = splitBuffer.slice(cursor.lineNumber); 
-    var sameLine = splitBuffer.slice(cursor.lineNumber - 1, cursor.lineNumber).join(""); 
-    sameLine = sameLine.split("");               
+    var splitBuffer = buffer.split("\n");
+    var lastPart = splitBuffer.slice(cursor.lineNumber);
+    var sameLine = splitBuffer.slice(cursor.lineNumber - 1, cursor.lineNumber).join("");
+    sameLine = sameLine.split("");
     sameLine = sameLine.slice(cursor.column).join("");
-    lastPart.unshift(sameLine);                                
+    lastPart.unshift(sameLine);
 
     return lastPart.join("").length;
 }

@@ -6,23 +6,10 @@ var editor = null; // eslint-disable-line no-unused-vars
 // eslint-disable-next-line no-unused-vars
 var editorState = {
 
-    // previous text
-    text: "",
-    // whether the cursor was a selection at the last parsable point
-    hasSelected: null,
-    // the position of the cursor/selection at the last parsable point
-    cursor: null,
-    // the sections of text delimited by the cursor/selection at the last parsable point
-    sections: [],
+    currState = null,
+    prevState = null,
+    parsableState = null;
 
-    // whether the editor buffer is currently parsable
-    parsable: null,
-    // the last valid parse of the buffer
-    parse: null,
-    // the editor buffer at the last parsable point
-    parsableText: "",
-    // the regions where editing is allowed
-    editableRegions: [],
     // if the editable regions are bounded by parenthesis
     inParenthesis: false,
 
@@ -31,4 +18,5 @@ var editorState = {
     closeParenthesis: null,
     // save cursors of parentheses
     parentheses: null,
+
 };

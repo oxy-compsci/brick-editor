@@ -2,6 +2,9 @@
 
 // FIXME convert functions to either take a two cursors or a single "selection"
 
+var UPDATE_REVERT = "UPDATE REVERT";
+var UPDATE_PARSABLE = "UPDATE PARSABLE";
+
 var BLOCK_DELETE_TYPES = [
     "IfStatement",
     "ForStatement",
@@ -31,38 +34,34 @@ var highlightedEditable = false;
  *
  * This function is called after the buffer has changed.
  *
- * @returns {undefined}
+ * @returns {MonacoState} - the state that the editor should change to.
  */
-function onCursorType() {
-    var index = findCursorEditableRegionIndex(editorState.cursor);
-    // if the new character is not in an editable region, revert it
-    if (index === null) {
-        revertAction();
+function onCursorType(parsableState, prevState, currState) {
+    if (!cursorInEditableRegion(currState)) {
+        return UPDATE_REVERT;
+    }
+    var editableRegion = copySelection(currState.editableRegion);
+    if (prevState.parse) {
+        if (!currState.parse) {
+            editableRegion = setSingleLineEditableRegion(prevState, currState);
+        }
     } else {
-        // check parsability changes due to the new character
-        var ast = attemptParse(editor.getValue());
-        if (editorState.parsable) {
-            if (!ast) {
-                setSingleLineEditableRegion(1);
-            }
+        if (!currState.parse) {
+            return UPDATE_PARSABLE;
         } else {
-            if (ast) {
-                makeAllEditable();
-            } else {
-                var editableRegion = editorState.editableRegions[0];
-                // update the editable region if the new character is on the end line
-                var lineDiff = editor.getValue().split("\n").length - editorState.text.split("\n").length;
-                if (lineDiff) {
-                    var line = getLine(editor.getValue(), editableRegion[1].lineNumber + lineDiff - 1);
-                    var columnDiff = line.length - editableRegion[1].column;
-                    adjustEditableRegion(0, 0, 0, lineDiff, columnDiff);
-                } else if (editorState.cursor.lineNumber === editableRegion[1].lineNumber) {
-                    adjustEditableRegion(0, 0, 0, 0, 1);
-                }
+            var lineDiff = currState.text.split("\n").length - prevState.text.split("\n").length;
+            if (lineDiff !== 0) {
+                var line = getLine(currState.text, currState.editableRegion[1].lineNumber + lineDiff - 1);
+                var columnDiff = line.length - currState.editableRegion[1].column;
+                editableRegion = adjustEditableRegion(editableRegion, 0, 0, lineDiff, columnDiff);
+            } else if (prevState.cursor.lineNumber === currState.editableRegion[1].lineNumber) {
+                editableRegion = adjustEditableRegion(editableRegion, 0, 0, 0, 1);
             }
         }
     }
-    updateEditorState();
+    var nextState = copyMonacoState(currState);
+    nextState.editableRegion = editableRegion;
+    return nextState;
 }
 
 /**
@@ -281,7 +280,22 @@ function onMouseDrag() {} // eslint-disable-line no-unused-vars
  *
  * @returns {undefined}
  */
-function updateEditorState() {
+function updateEditorState(update) {
+
+    if (update === null) {
+        return;
+    }
+
+    if (update === "revert action") { // revert
+    } else {
+        editorState.prevState = editorState.currState;
+        editorState.currState = update;
+        if (update.parse) {
+            editorState.parsableState = update;
+        }
+        applyMonacoState();
+    }
+
     var buffer = editor.getValue();
     var ast = attemptParse(buffer);
     var cursor = getCursor();
@@ -357,7 +371,7 @@ function makeAllEditable() {
  * @param {int} adjustment - amount to move the end column
  * @returns {undefined}
  */
-function setSingleLineEditableRegion(adjustment) {
+function setSingleLineEditableRegion(state, adjustment) {
     // if cursor is in condition or for
     //   limit to for
     // else
@@ -667,11 +681,13 @@ function highlightAndDelete(ast, startCursor, endCursor) {
  * @returns {undefined}
  */
 function backspaceHandler() { // eslint-disable-line no-unused-vars
+    var update = null;
     if (!editorState.hasSelected) {
-        onCursorBackspace();
+        update = onCursorBackspace();
     } else {
-        onSelectionDelete();
+        update = onSelectionDelete();
     }
+    updateEditorState(update);
 }
 
 /**
@@ -680,11 +696,13 @@ function backspaceHandler() { // eslint-disable-line no-unused-vars
  * @returns {undefined}
  */
 function deleteHandler() { // eslint-disable-line no-unused-vars
+    var update = null;
     if (!editorState.hasSelected) {
-        onCursorDelete();
+        update = onCursorDelete();
     } else {
-        onSelectionDelete();
+        update = onSelectionDelete();
     }
+    updateEditorState(update);
 }
 
 /**
@@ -694,34 +712,40 @@ function deleteHandler() { // eslint-disable-line no-unused-vars
  * @returns {undefined}
  */
 function onDidChangeCursorSelection(e) { // eslint-disable-line no-unused-vars
+
+    var currState = getCurrentMonacoState(editorState.currState.editableRegion);
+
+
+    var update = null;
     if (highlightedPreDelete) {
         unhighlight();
     }
     if (e.source === "mouse") {
         // FIXME dragging selected text
-        updateEditorState();
+        update = onMouseDrag(editorState.parsableState, editorState.prevState, editorState.currState);
     } else if (e.source === "keyboard") {
         if (e.reason === 4) { // pasted
             if (editorState.hasSelected) {
-                onSelectionPaste();
+                update = onSelectionPaste(editorState.parsableState, editorState.prevState, editorState.currState););
             } else {
-                onCursorPaste();
+                update = onCursorPaste(editorState.parsableState, editorState.prevState, editorState.currState););
             }
         } else if (e.reason === 3) { // arrow key movement
             updateEditorState();
         } else if (e.reason === 0) { // cut or type
             if (!editorState.hasSelected) { // typed at cursor
-                onCursorType();
+                update = onCursorType(editorState.parsableState, editorState.prevState, editorState.currState););
             } else {
                 var sections = splitAtCursors(editorState.text, editorState.cursor);
                 if (editor.getValue().length > sections[0].length + sections[2].length) {
-                    onSelectionType();
+                    update = onSelectionType(editorState.parsableState, editorState.prevState, editorState.currState););
                 } else {
-                    onSelectionCut();
+                    update = onSelectionCut(editorState.parsableState, editorState.prevState, editorState.currState););
                 }
             }
         }
     }
+    updateEditorState(update);
 }
 
 /**************************************
@@ -1397,6 +1421,51 @@ function getLine(text, lineIndex) {
  * SECTION: CLASSES
  *
  **************************************/
+
+function makeMonacoState(text, cursors, editableRegion) {
+    var ast = attemptParse(text);
+    return {
+        text: text,
+        parse: ast,
+        selection: (copySelection(cursors) if cursors.length === 2 else null),
+        cursor: (copyCursor(cursors[0]) if cursors.length === 1 else null),
+        editableRegion: copySelection(editableRegion),
+    };
+}
+
+function copyMonacoState(state) {
+    return makeMonacoState(
+        state.text,
+        (state.selection if state.selection else state.cursor),
+        copystate.editable
+    );
+}
+
+function getCurrentMonacoState(editableRegion) {
+    var buffer = editor.getValue();
+    var cursors = getSelection();
+    if (cursors === null) {
+        cursors = [getCursor()],
+    }
+    return makeMonacoState(buffer, cursors, copySelection(editableRegion));
+}
+
+function applyMonacoState(state) {
+    // FIXME might need an "undoable" setting
+    setValue(state.text);
+    if (state.selection) {
+        setSelection(state.selection);
+    } else {
+        setCursor(state.cursor);
+    }
+}
+
+function copySelection(selection) {
+    return [
+        copyCursor(selection[0]),
+        copyCursor(selection[1]),
+    ];
+}
 
 /**
  * Make a Cursor object.

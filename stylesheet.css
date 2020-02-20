@@ -38,11 +38,11 @@ body {
     cursor: pointer;
 }
 
-.highlight {
+.predelete-highlight {
     background-color: #8a08b5;
 }
 
-.conditionalHighlight {
+.editable-highlight {
     background-color: blue;
 }
 

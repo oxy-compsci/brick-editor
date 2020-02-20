@@ -1,7 +1,12 @@
 /* global require, module, editor, editorState, blockDict, monaco */
 
+// FIXME convert functions to either take a two cursors or a single "selection"
+
+var UPDATE_REVERT = "UPDATE REVERT";
+var UPDATE_PARSABLE = "UPDATE PARSABLE";
+
 var BLOCK_DELETE_TYPES = [
-    "IfStatement", 
+    "IfStatement",
     "ForStatement",
     "FunctionDeclaration",
     "WhileStatement",
@@ -14,12 +19,794 @@ var BLOCK_DELETE_TYPES = [
 
 var recast = require("recast");
 var estraverse = require("estraverse");
-var decorations = null;
-var condDecorations = null;
-var highlighted = false;
-var highlightedParen = false;
+var decorations = [];
+var highlightedPreDelete = null; // [startCursor, endCursor] or null
+var highlightedEditable = false;
 
-// USER INTERFACE CODE
+/**************************************
+ *
+ * SECTION: HIGH-LEVEL EVENTS
+ *
+ **************************************/
+
+/**
+ * Handle any typing at the cursor.
+ *
+ * This function is called after the buffer has changed.
+ *
+ * @returns {MonacoState} - the state that the editor should change to.
+ */
+function onCursorType(parsableState, prevState, currState) {
+    if (!cursorInEditableRegion(currState)) {
+        return UPDATE_REVERT;
+    }
+    var editableRegion = copySelection(currState.editableRegion);
+    if (prevState.parse) {
+        if (!currState.parse) {
+            editableRegion = setSingleLineEditableRegion(prevState, currState);
+        }
+    } else {
+        if (!currState.parse) {
+            return UPDATE_PARSABLE;
+        } else {
+            var lineDiff = currState.text.split("\n").length - prevState.text.split("\n").length;
+            if (lineDiff !== 0) {
+                var line = getLine(currState.text, currState.editableRegion[1].lineNumber + lineDiff - 1);
+                var columnDiff = line.length - currState.editableRegion[1].column;
+                editableRegion = adjustEditableRegion(editableRegion, 0, 0, lineDiff, columnDiff);
+            } else if (prevState.cursor.lineNumber === currState.editableRegion[1].lineNumber) {
+                editableRegion = adjustEditableRegion(editableRegion, 0, 0, 0, 1);
+            }
+        }
+    }
+    var nextState = copyMonacoState(currState);
+    nextState.editableRegion = editableRegion;
+    return nextState;
+}
+
+/**
+ * Handle backspace at the cursor.
+ *
+ * This function is called BEFORE the buffer is changed.
+ *
+ * @returns {undefined}
+ */
+function onCursorBackspace() {
+    var index = findCursorEditableRegionIndex(editorState.cursor);
+    // The backspace should not happen if:
+    // * The cursor not in an editable region
+    // * It is in an editable region, but would remove the starting parenthesis
+    if (!cursorInEditableRegion(editorState.cursor)) {
+        flash();
+    } else if (editorState.inParenthesis && getCursor().column === editorState.editableRegions[index][0].column) {
+        flash();
+    } else {
+        // otherwise, it's in an editable region
+        // if the buffer is currently parsable, try to be clever about backspacing over entire blocks
+        // otherwise, just let backspace work as usual
+        if (editorState.parsable) {
+            doCursorBackspace();
+            if (!attemptParse(editor.getValue())) {
+                setSingleLineEditableRegion(-1);
+            }
+        } else {
+            backspaceCharacter(editor.getValue(), getCursor());
+            if (attemptParse(editor.getValue())) {
+                makeAllEditable();
+            } else {
+                // update the editable region
+                var editableRegion = editorState.editableRegions[index];
+                // if the new character is on the same line as the end of the region
+                // increment the column number to account for the new character
+                if (editableRegion[0].lineNumber === editableRegion[1].lineNumber) {
+                    adjustEditableRegion(index, 0, 0, 0, -1);
+                }
+            }
+        }
+    }
+    updateEditorState();
+}
+
+/**
+ * Handle delete at the cursor.
+ *
+ * This function is called BEFORE the buffer is changed.
+ *
+ * @returns {undefined}
+ */
+function onCursorDelete() {
+    var index = findCursorEditableRegionIndex(editorState.cursor);
+    // The delete should not happen if:
+    // * The cursor not in an editable region
+    // * It is in an editable region, but would remove the ending parenthesis
+    if (!cursorInEditableRegion(editorState.cursor)) {
+        flash();
+    } else if (editorState.inParenthesis && getCursor().column === editorState.editableRegions[index][1].column) {
+        flash();
+    } else {
+        // otherwise, it's in an editable region
+        // if the buffer is currently parsable, try to be clever about backspacing over entire blocks
+        // otherwise, just let backspace work as usual
+        if (editorState.parsable) {
+            doCursorDelete();
+            if (!attemptParse(editor.getValue())) {
+                setSingleLineEditableRegion(-1);
+            }
+        } else {
+            deleteCharacter(editor.getValue(), getCursor());
+            if (attemptParse(editor.getValue())) {
+                makeAllEditable();
+            } else {
+                // update the editable region
+                var editableRegion = editorState.editableRegions[index];
+                // if the new character is on the same line as the end of the region
+                // increment the column number to account for the new character
+                if (editableRegion[0].lineNumber === editableRegion[1].lineNumber) {
+                    adjustEditableRegion(index, 0, 0, 0, -1);
+                }
+            }
+        }
+    }
+    updateEditorState();
+}
+
+/**
+ * Handle any typing on a selection.
+ *
+ * This function is called after the buffer has changed.
+ *
+ * @returns {undefined}
+ */
+function onSelectionType() {
+    var selection = editorState.cursor;
+    // if the selection character is not in an editable region, revert it
+    if (!selectionInEditableRegion(selection[0], selection[1])) {
+        revertAction();
+    } else {
+        // check parsability changes due to the new character
+        var ast = attemptParse(editor.getValue());
+        if (editorState.parsable) {
+            if (!ast) {
+                setMultiLineEditableRegion();
+            }
+        } else {
+            if (ast) {
+                makeAllEditable();
+            } else {
+                // update the editable region
+                var editableRegion = editorState.editableRegions[0];
+                var lineDiff = editor.getValue().split("\n").length - editorState.text.split("\n").length;
+                if (lineDiff) {
+                    var line = getLine(editor.getValue(), editableRegion[1].lineNumber + lineDiff - 1);
+                    var columnDiff = line.length - editableRegion[1].column;
+                    adjustEditableRegion(0, 0, 0, lineDiff, columnDiff);
+                } else if (editorState.cursor.lineNumber === editableRegion[1].lineNumber) {
+                    adjustEditableRegion(0, 0, 0, 0, 1);
+                }
+            }
+        }
+    }
+    updateEditorState();
+}
+
+/**
+ * Handle backspace and delete on a selection.
+ *
+ * This function is called BEFORE the buffer is changed.
+ *
+ * @returns {undefined}
+ */
+function onSelectionDelete() {
+    var selection = editorState.cursor;
+    // if the selection character is not in an editable region, revert it
+    if (!selectionInEditableRegion(selection[0], selection[1])) {
+        flash();
+    } else {
+        if (editorState.parsable) {
+            doSelectionDelete();
+            if (!attemptParse(editor.getValue())) {
+                setMultiLineEditableRegion();
+            }
+        } else {
+            if (attemptParse(editor.getValue())) {
+                makeAllEditable();
+            } else {
+                // update the editable region
+                var editableRegion = editorState.editableRegions[0];
+                var lineDiff = editor.getValue().split("\n").length - editorState.text.split("\n").length;
+                if (lineDiff) {
+                    var line = getLine(editor.getValue(), editableRegion[1].lineNumber + lineDiff - 1);
+                    var columnDiff = line.length - editableRegion[1].column;
+                    adjustEditableRegion(0, 0, 0, lineDiff, columnDiff);
+                } else if (editorState.cursor.lineNumber === editableRegion[1].lineNumber) {
+                    adjustEditableRegion(0, 0, 0, 0, 1);
+                }
+            }
+        }
+    }
+    updateEditorState();
+}
+
+/**
+ * Handle cutting on a selection.
+ *
+ * This function is called after the buffer has changed.
+ *
+ * @returns {undefined}
+ */
+function onSelectionCut() {
+    updateEditorState();
+}
+
+/**
+ * Handle pasting at the cursor.
+ *
+ * This function is called after the buffer has changed.
+ *
+ * @returns {undefined}
+ */
+function onCursorPaste() {
+    updateEditorState();
+}
+
+/**
+ * Handle pasting over a selection.
+ *
+ * This function is called after the buffer has changed.
+ *
+ * @returns {undefined}
+ */
+function onSelectionPaste() {
+    updateEditorState();
+}
+
+/**
+ * Handle code being dragged by the mouse.
+ *
+ * This function is called FIXME the buffer has changed.
+ *
+ * @returns {undefined}
+ */
+function onMouseDrag() {} // eslint-disable-line no-unused-vars
+
+/**************************************
+ *
+ * SECTION: EDITOR STATE
+ *
+ **************************************/
+
+/**
+ * Update the editor state.
+ *
+ * @returns {undefined}
+ */
+function updateEditorState(update) {
+
+    if (update === null) {
+        return;
+    }
+
+    if (update === "revert action") { // revert
+    } else {
+        editorState.prevState = editorState.currState;
+        editorState.currState = update;
+        if (update.parse) {
+            editorState.parsableState = update;
+        }
+        applyMonacoState();
+    }
+
+    var buffer = editor.getValue();
+    var ast = attemptParse(buffer);
+    var cursor = getCursor();
+
+    // general editor state
+    editorState.text = buffer;
+    var selected = getSelection();
+    if (selected) {
+        editorState.hasSelected = true;
+        editorState.cursor = selected;
+        editorState.sections = splitAtCursors(buffer, selected);
+    } else {
+        editorState.hasSelected = false;
+        editorState.cursor = getCursor();
+        editorState.sections = splitAtCursors(buffer, [editorState.cursor]);
+    }
+    // one time initialization of editableRegions and related state
+    if (editorState.editableRegions.length === 0) {
+        makeAllEditable();
+        editorState.inParenthesis = false;
+    } else if (highlightedEditable) {
+        unhighlight();
+        for (var i = 0; i < editorState.editableRegions.length; i++) {
+            var editableRegion = editorState.editableRegions[i];
+            highlightEditable(editableRegion[0], editableRegion[1]);
+        }
+    }
+
+    if (ast) {
+        if (highlightedEditable) {
+            unhighlight();
+        }
+        editorState.parsable = true;
+        editorState.parse = ast;
+        editorState.parsableText = buffer;
+        document.getElementById("parseButton").disabled = true;
+        makeAllEditable();
+        // save positions of parentheses
+        var parentheses = getSurroundingProtectedParen(buffer, ast, cursor);
+        editorState.parentheses = parentheses;
+        if (parentheses) {
+            editorState.openParenthesis = positionFromStart(buffer, parentheses[0]);
+            editorState.closeParenthesis = positionFromEnd(buffer, parentheses[1]);
+        } else {
+            editorState.openParenthesis = null;
+            editorState.closeParenthesis = null;
+        }
+    } else {
+        editorState.parsable = false;
+        document.getElementById("parseButton").disabled = false;
+    }
+}
+
+/**
+ * Make the entire buffer editable.
+ *
+ * @returns {undefined}
+ */
+function makeAllEditable() {
+    editorState.editableRegions = [ [
+        makeCursor(1, 0),
+        getLastCursor(editor.getValue()),
+    ] ];
+}
+
+/**
+ * Sets the editable region to a single line.
+ *
+ * Because this function could be called from different editing events, the
+ * adjustment parameter allows the calling event to adjust the ending column
+ * (ie. -1 if the event was a backspace or a delete, +1 if it was an insert).
+ *
+ * @param {int} adjustment - amount to move the end column
+ * @returns {undefined}
+ */
+function setSingleLineEditableRegion(state, adjustment) {
+    // if cursor is in condition or for
+    //   limit to for
+    // else
+    //   limit to entire line
+    var startCursor = null;
+    var endCursor = null;
+    var parens = getSurroundingProtectedParen(editorState.parsableText, editorState.parse, editorState.cursor);
+    if (parens === null) {
+        startCursor = getCursor();
+        endCursor = getCursor();
+        startCursor.column = 0;
+        endCursor.column = getLine(editor.getValue(), startCursor.lineNumber - 1).length;
+        editorState.inParenthesis = false;
+    } else {
+        startCursor = parens[0];
+        endCursor = parens[1];
+        startCursor.column += 1;
+        endCursor.column -= 1;
+        endCursor.column += adjustment;
+        editorState.inParenthesis = true;
+    }
+    editorState.editableRegions = [ [startCursor, endCursor] ];
+    highlightEditable(startCursor, endCursor);
+}
+
+/**
+ * Sets the editable region to multiple line.
+ *
+ * @returns {undefined}
+ */
+function setMultiLineEditableRegion() {
+    var siblingCursors = findClosestSiblingCursors(editorState.parse, editorState.cursor);
+    var startCursor = siblingCursors[0];
+    var endCursor = siblingCursors[1];
+    // map to post-edit cursors
+    endCursor.lineNumber -= editorState.text.split("\n").length - editor.getValue().split("\n").length ;
+    endCursor.column = getLine(editor.getValue(), endCursor.lineNumber - 1).length;
+    // change editorState and highlight
+    editorState.editableRegions = [ [startCursor, endCursor] ];
+    highlightEditable(startCursor, endCursor);
+}
+
+/**
+ * Adjusts an editable region.
+ *
+ * @param {int} index - the index of the editable region
+ * @param {int} startLine - amount to move the start line
+ * @param {int} startColumn - amount to move the start column
+ * @param {int} endLine - amount to move the end line
+ * @param {int} endColumn - amount to move the end column
+ * @returns {undefined}
+ */
+function adjustEditableRegion(index, startLine, startColumn, endLine, endColumn) {
+    var startCursor = editorState.editableRegions[index][0];
+    var endCursor = editorState.editableRegions[index][1];
+    startCursor.lineNumber += startLine;
+    startCursor.column += startColumn;
+    endCursor.lineNumber += endLine;
+    endCursor.column += endColumn;
+    highlightEditable(startCursor, endCursor);
+}
+
+/**
+ * Find the index of the editable region that contains the cursor.
+ *
+ * @param {Cursor} cursor - the cursor location
+ * @returns {int} - the index, or null
+ */
+function findCursorEditableRegionIndex(cursor) {
+    for (var i = 0; i < editorState.editableRegions.length; i++) {
+        var regionStart = copyCursor(editorState.editableRegions[i][0]);
+        var regionEnd = copyCursor(editorState.editableRegions[i][1]);
+        regionStart.column -= 1;
+        regionEnd.column += 1;
+        if (isBetweenCursors(cursor, regionStart, regionEnd)) {
+            return i;
+        }
+    }
+    return null;
+}
+
+/**
+ * Determine if the cursor is in any editable region.
+ *
+ * @param {Cursor} cursor - the cursor location
+ * @returns {boolean} - true if the cursor is in an editable region
+ */
+function cursorInEditableRegion(cursor) {
+    return findCursorEditableRegionIndex(cursor) !== null;
+}
+
+/**
+ * Determine if the selection is in any editable region.
+ *
+ * @param {Cursor} startCursor - the start cursor location
+ * @param {Cursor} endCursor - the end cursor location
+ * @returns {boolean} - true if the cursor is in an editable region
+ */
+function selectionInEditableRegion(startCursor, endCursor) {
+    var startIndex = findCursorEditableRegionIndex(startCursor);
+    var endIndex = findCursorEditableRegionIndex(endCursor);
+    return (startIndex !== null) && (startIndex == endIndex);
+
+}
+
+/**************************************
+ *
+ * SECTION: HIGH-LEVEL ACTIONS
+ *
+ **************************************/
+
+// FIXME update state on undo
+
+/**
+ * Revert the buffer value to the last parsable state
+ *
+ * @returns {undefined}
+ */
+function revertToParsed() { // eslint-disable-line no-unused-vars
+    setValue(editorState.parsableText);
+    unhighlight();
+    makeAllEditable();
+    updateEditorState();
+}
+
+/**
+ * Revert to before the current action
+ *
+ * @returns {undefined}
+ */
+function revertAction() {
+    setValue(editorState.text);
+    if (editorState.hasSelected) {
+        setSelection(editorState.cursor[0], editorState.cursor[1]);
+    } else {
+        setCursor(editorState.cursor);
+    }
+    flash();
+}
+
+/**
+ * Handle the actual backspacing on a cursor.
+ *
+ * @returns {undefined}
+ */
+function doCursorBackspace() {
+    var buffer = editor.getValue();
+    var cursor = getCursor();
+    var oneBack = makeCursor(cursor.lineNumber, cursor.column - 1);
+    var ast = attemptParse(buffer);
+    if (cursorAtEndOfBlock(ast, cursor, BLOCK_DELETE_TYPES)) {
+        var node = findClosestDeletableBlock(ast, cursor);
+        var cursors = getNodeLoc(node);
+        highlightAndDelete(ast, cursors[0], cursors[1]);
+    } else if (spansProtectedPunctuation(buffer, ast, [oneBack, cursor])) {
+        // ignore the backspace if it will remove a syntax parenthesis or brace
+        flash(); 
+    } else {
+        backspaceCharacter(buffer, cursor);
+    }
+}
+
+/**
+ * Handle the actual deleting on a cursor.
+ *
+ * @returns {undefined}
+ */
+function doCursorDelete() {
+    var buffer = editor.getValue();
+    var cursor = getCursor();
+    var oneAhead = makeCursor(cursor.lineNumber, cursor.column + 1);
+    var ast = attemptParse(buffer);
+    if (cursorAtStartOfBlock(ast, cursor, BLOCK_DELETE_TYPES)) {
+        var node = findClosestDeletableBlock(ast, cursor);
+        var cursors = getNodeLoc(node);
+        highlightAndDelete(ast, cursors[0], cursors[1]);
+    } else if (spansProtectedPunctuation(buffer, ast, [cursor, oneAhead])) {
+        // ignore the delete if it will remove a syntax parenthesis or brace
+        flash(); 
+    } else {
+        deleteCharacter(buffer, cursor);
+    }
+}
+
+/**
+ * Handle the actual deleting on a selection.
+ *
+ * @returns {undefined}
+ */
+function doSelectionDelete() {
+    var buffer = editor.getValue();
+    var ast = attemptParse(buffer);
+    var siblingCursors = findClosestSiblingCursors(ast, getSelection());
+    // FIXME unclear when to just delete the selection and when to delete spanning blocks
+    if (siblingCursors[0].lineNumber !== siblingCursors[1].lineNumber) {
+        highlightAndDelete(ast, siblingCursors[0], siblingCursors[1]);
+    } else {
+        deleteSelection(buffer, editorState.cursor);
+    }
+}
+
+/**************************************
+ *
+ * SECTION: HIGH-LEVEL UI
+ *
+ **************************************/
+
+/**
+ * Flashes the editor background for 100 ms
+ *
+ * @returns {undefined}
+ */
+function flash() {
+    monaco.editor.setTheme("flash");
+    setTimeout(function () { monaco.editor.setTheme("normal"); }, 100);
+}
+
+/**
+ * Highlights editor text based on start/end lineNumbers and start/end columns
+ *
+ * @param {Cursor} startCursor - The start of the range
+ * @param {Cursor} endCursor - The end of the range
+ * @returns {undefined}
+ */
+function highlightPreDelete(startCursor, endCursor) {
+    highlight(startCursor, endCursor, "predelete-highlight");
+    highlightedPreDelete = [startCursor, endCursor];
+}
+
+/**
+ * Highlights from opening parenthesis to closed parenthesis, inclusive
+ *
+ * @param {Cursor} startCursor - The start of the range
+ * @param {Cursor} endCursor - The end of the range
+ * @returns {undefined}
+ */
+function highlightEditable(startCursor, endCursor) {
+    highlight(startCursor, endCursor, "editable-highlight");
+    highlightedEditable = true;
+}
+
+/**
+ * Highlights editor text based on start/end lineNumbers and start/end columns
+ *
+ * @param {Cursor} startCursor - The start of the range
+ * @param {Cursor} endCursor - The end of the range
+ * @param {string} cssClass - The CSS to use for highlighting
+ * @returns {undefined}
+ */
+function highlight(startCursor, endCursor, cssClass) {
+    var startLine = startCursor.lineNumber;
+    var startColumn = startCursor.column;
+    var endLine = endCursor.lineNumber;
+    var endColumn = endCursor.column;
+    decorations = editor.deltaDecorations(decorations, [{
+        range: new monaco.Range(startLine, startColumn + 1, endLine, endColumn + 1),
+        options: { isWholeLine: false, className: cssClass },
+    }]);
+}
+
+/**
+ * Removes all decorations and highlighting from the editor
+ *
+ * @returns {undefined}
+ */
+function unhighlight() {
+    decorations = editor.deltaDecorations(decorations, []);
+    highlightedPreDelete = null;
+    highlightedEditable = false;
+}
+
+/**************************************
+ *
+ * SECTION: MID-LEVEL ACTIONS
+ *
+ **************************************/
+
+/**
+ * Highlight a block or delete it if already highlighted
+ *
+ * @param {AST} ast - The root of the ast
+ * @param {Cursor} startCursor - the cursor marking the beginning of a region.
+ * @param {Cursor} endCursor - the cursor marking the end of a region.
+ * @returns {undefined}
+ */
+function highlightAndDelete(ast, startCursor, endCursor) {
+    if (highlightedPreDelete) {
+        // FIXME cursor is off due to auto-reformatting
+        var sections = splitAtCursors(editor.getValue(), [startCursor, endCursor]);
+        setValue(sections[0] + sections[2]);
+        setCursor(startCursor);
+        unhighlight();
+    } else {
+        highlightPreDelete(startCursor, endCursor);
+    }
+}
+
+/**************************************
+ *
+ * SECTION: LOW-LEVEL EVENTS
+ *
+ **************************************/
+
+/**
+ * Called when backspace key is pressed
+ *
+ * @returns {undefined}
+ */
+function backspaceHandler() { // eslint-disable-line no-unused-vars
+    var update = null;
+    if (!editorState.hasSelected) {
+        update = onCursorBackspace();
+    } else {
+        update = onSelectionDelete();
+    }
+    updateEditorState(update);
+}
+
+/**
+ * Called when delete key is pressed
+ *
+ * @returns {undefined}
+ */
+function deleteHandler() { // eslint-disable-line no-unused-vars
+    var update = null;
+    if (!editorState.hasSelected) {
+        update = onCursorDelete();
+    } else {
+        update = onSelectionDelete();
+    }
+    updateEditorState(update);
+}
+
+/**
+ * Callback function whenever the cursor moves.
+ *
+ * @param {Event} e - the cursor movement event.
+ * @returns {undefined}
+ */
+function onDidChangeCursorSelection(e) { // eslint-disable-line no-unused-vars
+
+    var currState = getCurrentMonacoState(editorState.currState.editableRegion);
+
+
+    var update = null;
+    if (highlightedPreDelete) {
+        unhighlight();
+    }
+    if (e.source === "mouse") {
+        // FIXME dragging selected text
+        update = onMouseDrag(editorState.parsableState, editorState.prevState, editorState.currState);
+    } else if (e.source === "keyboard") {
+        if (e.reason === 4) { // pasted
+            if (editorState.hasSelected) {
+                update = onSelectionPaste(editorState.parsableState, editorState.prevState, editorState.currState););
+            } else {
+                update = onCursorPaste(editorState.parsableState, editorState.prevState, editorState.currState););
+            }
+        } else if (e.reason === 3) { // arrow key movement
+            updateEditorState();
+        } else if (e.reason === 0) { // cut or type
+            if (!editorState.hasSelected) { // typed at cursor
+                update = onCursorType(editorState.parsableState, editorState.prevState, editorState.currState););
+            } else {
+                var sections = splitAtCursors(editorState.text, editorState.cursor);
+                if (editor.getValue().length > sections[0].length + sections[2].length) {
+                    update = onSelectionType(editorState.parsableState, editorState.prevState, editorState.currState););
+                } else {
+                    update = onSelectionCut(editorState.parsableState, editorState.prevState, editorState.currState););
+                }
+            }
+        }
+    }
+    updateEditorState(update);
+}
+
+/**************************************
+ *
+ * SECTION: LOW-LEVEL ACTIONS
+ *
+ **************************************/
+
+/**
+ * Backspace a character
+ *
+ * @param {string} buffer - A string of text from the editor.
+ * @param {Cursor} cursor - The line and column of the cursor
+ * @returns {undefined}
+ */
+function backspaceCharacter(buffer, cursor) {
+    var beginCursor = makeCursor(cursor.lineNumber, cursor.column - 1);
+    var sections = splitAtCursors(buffer, [beginCursor, cursor]);
+    setValue([sections[0], sections[2]].join(""));
+    if (cursor.column === 0) {
+        cursor.lineNumber -= 1;
+        cursor.column = Infinity;
+    } else {
+        cursor.column = cursor.column - 1;
+    }
+    cursor.column = getLine(buffer, cursor.lineNumber - 1).length;
+    setCursor(cursor);
+}
+
+/**
+ * Delete a character
+ *
+ * @param {string} buffer - A string of text from the editor.
+ * @param {Cursor} cursor - The line and column of the cursor
+ * @returns {undefined}
+ */
+function deleteCharacter(buffer, cursor) {
+    var endCursor = makeCursor(cursor.lineNumber, cursor.column + 1);
+    var sections = splitAtCursors(buffer, [cursor, endCursor]);
+    setValue([sections[0], sections[2]].join(""));
+    setCursor(cursor);
+}
+
+/**
+ * Delete the selected text
+ *
+ * @param {string} buffer - A string of text from the editor.
+ * @param {[Cursor]} cursors - A list of two Cursors defining the selection.
+ * @returns {undefined}
+ */
+function deleteSelection(buffer, cursors) {
+    var sections = splitAtCursors(buffer, cursors);
+    setValue([sections[0], sections[2]].join(""));
+    setCursor(cursors[0]);
+}
+
+/**************************************
+ *
+ * SECTION: BUTTONS
+ *
+ **************************************/
 
 /**
  * Add the HTML blocks to the button container
@@ -47,34 +834,6 @@ function addBlocksHTML() { // eslint-disable-line no-unused-vars
     }
 }
 
-// EVENT HANDLERS
-
-/**
- * Called when backspace key is pressed
- *
- * @returns {undefined}
- */
-function backspaceHandler() { // eslint-disable-line no-unused-vars
-    if (getSelected()) {
-        onRangeDelete();
-    } else {
-        onPointBackspace();
-    }
-}
-
-/**
- * Called when delete key is pressed
- *
- * @returns {undefined}
- */
-function deleteHandler() { // eslint-disable-line no-unused-vars
-    if (getSelected()) {
-        onRangeDelete();
-    } else {
-        onPointDelete();
-    }
-}
-
 /**
  * Handle button clicks
  *
@@ -87,8 +846,8 @@ function buttonHandler(i) { // eslint-disable-line no-unused-vars
     var cursor = getCursor();
 
     // add block to buffer string and update editor
-    var new_text = addBlock(template, ast, cursor);
-    ast = attemptParse(new_text);
+    var newText = addBlock(template, ast, cursor);
+    ast = attemptParse(newText);
     setValue(recast.print(ast).code);
 
     // update cursor position
@@ -96,360 +855,70 @@ function buttonHandler(i) { // eslint-disable-line no-unused-vars
 }
 
 /**
- * Backspace a character
+ * Add a block based on button keyword
  *
- * @param {string} buffer - A string of text from the editor.
- * @param {Cursor} cursor - The line and column of the cursor
- * @returns {undefined}
- */
-function charBackspaceBranch(buffer, cursor) {
-    setValue(backspaceChar(buffer, cursor));
-    if (cursor.column === 0) {
-        cursor.lineNumber -= 1;
-        cursor.column = Infinity;
-    } else {
-        cursor.column = cursor.column - 1;
-    }
-    setCursor(cursor);
-}
-
-/**
- * Delete a character
- *
- * @param {string} buffer - A string of text from the editor.
- * @param {Cursor} cursor - The line and column of the cursor
- * @returns {undefined}
- */
-function charDeleteBranch(buffer, cursor) {
-    setValue(deleteChar(buffer, cursor));
-    setCursor(cursor);
-}
-
-// EDITING HANDLERS
-
-/**
- * Handler for any text on a cursor.
- *
- * @returns {undefined}
- */
-function onPointInsert() {
-    console.log("on point insert"); // eslint-disable-line no-console
-    // if editor is unparsable
-    if (!attemptParse(editor.getValue())) {
-        // if cursor is where editor became unparsable
-        var cursor = getCursor();
-        var buffer = editor.getValue();
-        if (cursor.lineNumber == editorState.cursor.lineNumber) {
-            // if cursor was inside parentheses
-            if (editorState.openParenthesis && editorState.closeParenthesis) {
-                // add one column position to editorState.parentheses because character was added but not accounted for
-                if (!highlightedParen) {
-                    editorState.parentheses[1].column += 1;
-                    highlightParen(editorState.parentheses);
-                }
-                // if outside of parentheses currently
-                if (positionFromStart(buffer, cursor) - 1 <= editorState.openParenthesis || positionFromEnd(buffer, cursor) <= editorState.closeParenthesis) {
-                    editor.trigger("", "undo");
-                } else {
-                    editorState.parentheses[1].column = editorState.parentheses[1].column + 1;
-                }
-            }
-        } else {
-            editor.trigger("", "undo");
-        }
-    }
-    updateEditorState();
-}
-
-/**
- * Handler for backspace on a cursor.
- *
- * @returns {undefined}
- */
-function onPointBackspace() {
-    console.log("on point backspace"); // eslint-disable-line no-console
-    var buffer = editor.getValue();
-    var cursor = getCursor();
-    if (attemptParse(buffer)) {
-        var oneBack = makeCursor(cursor.lineNumber, cursor.column - 1);
-        var ast = attemptParse(buffer);
-        if (cursorAtEndOfBlock(ast, cursor, BLOCK_DELETE_TYPES)) {
-            var node = findClosestDeletableBlock(ast, cursor);
-            if (highlighted) {
-                setValue(deleteBlock(ast, node));
-                unhighlight();
-            } else {
-                highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
-            }
-        } else if (spansProtectedPunctuation(buffer, ast, [oneBack, cursor])) {
-            // ignore the backspace if it's something important
-            // flash editor screen 
-            flash(); 
-        } else {
-            charBackspaceBranch(buffer, cursor);
-        }
-    } else if (cursor.lineNumber == editorState.cursor.lineNumber) { // if unparsable but on same line
-        // if cursor was inside () at last parsable state
-        if (editorState.openParenthesis && editorState.closeParenthesis) {
-            if (positionFromStart(buffer, cursor) - 1 == editorState.openParenthesis) {
-                // ignore backspace if directly to the right of (
-                flash();
-            } else if (positionFromStart(buffer, cursor) <= editorState.openParenthesis || positionFromEnd(buffer, cursor) <= editorState.closeParenthesis) {
-                // ignore backspace if to the right of ) or to the left of (
-                flash();
-            } else {
-                // update highlighting range
-                editorState.parentheses[1].column = editorState.parentheses[1].column - 1;
-                charBackspaceBranch(buffer, cursor);
-            }
-        } else {
-            charBackspaceBranch(buffer, cursor);
-        }
-    }
-    updateEditorState();
-}
-
-/**
- * Handler for delete on a cursor.
- *
- * @returns {undefined}
- */
-function onPointDelete() {
-    console.log("on point delete"); // eslint-disable-line no-console
-    var buffer = editor.getValue();
-    var cursor = getCursor();
-    if (attemptParse(buffer)) {
-        if (highlightedParen) {
-            unhighlightParen();
-        }
-        var oneAhead = makeCursor(cursor.lineNumber, cursor.column + 1);
-        var ast = attemptParse(buffer);
-        if (cursorAtStartOfBlock(ast, cursor)) {
-            var node = findClosestDeletableBlock(ast, cursor);
-            if (highlighted) {
-                setValue(deleteBlock(ast, node));
-                unhighlight();
-            } else {
-                highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
-            }
-        } else if (spansProtectedPunctuation(buffer, ast, [cursor, oneAhead])) {
-            // ignore the delete if it's something important
-            // flash editor screen 
-            flash(); 
-        } else {
-            charDeleteBranch(buffer, cursor);
-        }
-    } else if (cursor.lineNumber == editorState.cursor.lineNumber) { // if unparsable but on same line
-        // if inside parentheses when became unparsable 
-        if (editorState.openParenthesis && editorState.closeParenthesis) {
-            if (positionFromEnd(buffer, cursor) - 1 == editorState.closeParenthesis) { // if directly to left of ) 
-                // ignore delete if parenthesis
-                flash();
-            } else if (positionFromStart(buffer, cursor) <= editorState.openParenthesis || positionFromEnd(buffer, cursor) <= editorState.closeParenthesis) { // if left of ( or right of )
-                // ignore delete if left or right of conditional
-                flash();
-            } else {
-                // update highlighting range
-                editorState.parentheses[1].column = editorState.parentheses[1].column - 1;
-                charDeleteBranch(buffer, cursor);
-            }
-        } else {
-            charDeleteBranch(buffer, cursor);
-        }
-    }
-    updateEditorState();
-}
-
-/**
- * Handler for any text on a selection.
- *
- * @returns {undefined}
- */
-function onRangeReplace() {
-    console.log("on range replace"); // eslint-disable-line no-console
-    updateEditorState();
-}
-
-/**
- * Handler for any deletion of a selection.
- *
- * @returns {undefined}
- */
-function onRangeDelete() {
-    console.log("on range delete"); // eslint-disable-line no-console
-    var buffer = editor.getValue();
-    var ast = attemptParse(buffer);
-    var selection = getSelected();
-    if (ast && selection) {
-        var node = deleteSelected(ast, selection);
-        if (highlighted) {
-            setValue(deleteBlock(ast, node));
-            unhighlight();
-        } else {
-            highlight(node.loc.start.line, node.loc.start.column, node.loc.end.line, node.loc.end.column);
-        } 
-    }
-    updateEditorState();
-}
-
-/** 
- * Set value of editor using executeEdits to preserve undo stack
- *
- * @param {string} newBuffer - String replacing oldBuffer.
- * @returns {undefined}
-*/
-function setValue(newBuffer) {
-    // get range of editor model 
-    var range = editor.getModel().getFullModelRange();
-    // call execute edits on the editor 
-    editor.executeEdits(editor.getValue(), [{ identifier: "insert", range: range, text: newBuffer }]);
-}
-
-/** 
- * Resets the buffer value to the last correct parsed state
- *
- * @returns {undefined}
- */
-function resetToParsed() { // eslint-disable-line no-unused-vars
-    setValue(editorState.parsableText);
-} 
-
-
-// EDITOR INTERFACE CODE
-
-/**
- * Make a Cursor object.
- *
- * @param {int} line - The line number.
- * @param {int} col - The column number.
- * @returns {Cursor} - The Cursor object.
- */
-function makeCursor(line, col) {
-    if (line < 1) {
-        throw "line must be a positive integer, but got " + col;
-    }
-    return { "lineNumber": line, "column": col };
-}
-
-/**
- * Get the cursor in the editor.
- *
- * Note monaco line number starts at 0, while recast line number starts at 1.
- * The result of this function, and all functions here, follow the recast
- * numbering.
- *
- * @returns {Cursor} - The line and column of the cursor in the editor.
- */
-function getCursor() {
-    var cursor = editor.getPosition();
-    cursor.column = cursor.column - 1;
-    return cursor;
-}
-
-/**
- * Get the cursor in the editor.
- *
- * Note monaco line number starts at 0, while recast line number starts at 1.
- * The input of this function follows the recast numbering.
- *
+ * @param {string} template - A string of block of text to add.
+ * @param {AST} ast - Parsed text from the editor.
  * @param {Cursor} cursor - The line and column of the cursor.
- * @returns {undefined}
+ * @returns {buffer} Updated text string
  */
-function setCursor(cursor) {
-    cursor.column = cursor.column + 1;
-    editor.setPosition(cursor);
+function addBlock(template, ast, cursor) {
+    var prevSibling = findPreviousSibling(ast, cursor);
+    var parentNode = null;
+    if (prevSibling) {
+        var pos = makeCursor(prevSibling.loc.start.line, prevSibling.loc.start.column);
+        parentNode = findClosestParent(ast, pos, ["BlockStatement", "Program"]);
+    } else {
+        parentNode = findClosestParent(ast, cursor, ["BlockStatement", "Program"]);
+    }
+    // parse template
+    var parsedTemplate = attemptParse(template);
+    // parentNode should be pointer, so just append
+    var index = parentNode.body.indexOf(prevSibling);
+    parentNode.body.splice(index + 1, 0, parsedTemplate.program.body[0]);
+    // update editor state
+    updateEditorState();
+    // return buffer
+    return recast.print(ast).code;
 }
 
-/**
- * Returns position of selection if selection exists.
+/**************************************
  *
- * @returns {[Cursor]} - A list of two Cursors defining the selection.
+ * SECTION: PARSING
+ *
+ **************************************/
+
+/**
+ * Attempt to parse JavaScript code.
+ *
+ * @param {string} text - The text to parse.
+ * @returns {AST} - The parsed AST, or null if unparsable.
  */
-function getSelected() {
-    var selectionObject = editor.getSelection();
-    var selection = [
-        makeCursor(selectionObject.startLineNumber, selectionObject.startColumn - 1),
-        makeCursor(selectionObject.endLineNumber, selectionObject.endColumn - 1),
-    ];
-    if (selection[0].lineNumber !== selection[1].lineNumber
-        || selection[0].column !== selection[1].column) {
-        return selection;
-    } else {
+function attemptParse(text) {
+    try {
+        return recast.parse(text);
+    } catch (e) {
         return null;
     }
 }
 
 /**
- * Highlights editor text based on start/end lineNumbers and start/end columns
+ * Get the start and end Cursors of a AST Node
  *
- * @param {int} startLine - LineNumber where range will start
- * @param {int} startColumn - Column where range will start
- * @param {int} endLine - LineNumber where range will end
- * @param {int} endColumn - Column where range will end
- * @returns {undefined}
+ * @param {AST} node - The node whose position we want.
+ * @returns {[Cursor]} - A list of two cursors.
  */
-function highlight(startLine, startColumn, endLine, endColumn) {
-    decorations = editor.deltaDecorations([], [
-        {
-            range: new monaco.Range(startLine, startColumn, endLine, endColumn + 1),
-            options: { isWholeLine: false, className: "highlight" }
-        }
-    ]);
-    highlighted = true;
+function getNodeLoc(node) {
+    var startCursor = makeCursor(
+        node.loc.start.line,
+        node.loc.start.column
+    );
+    var endCursor = makeCursor(
+        node.loc.end.line,
+        node.loc.end.column
+    );
+    return [startCursor, endCursor];
 }
-
-/**
- * Removes all decorations and highlighting from the editor
- *
- * @returns {undefined}
- */
-function unhighlight() {
-    decorations = editor.deltaDecorations(decorations, []);
-    highlighted = false;
-}
-
-/** 
- * Flashes the editor background for 100 ms 
- * 
- * @returns {undefined} 
- */
-function flash() {
-    monaco.editor.setTheme("flash");
-    setTimeout(function () { monaco.editor.setTheme("normal"); }, 100);
-
-} 
-
-/**
- * Highlights from opening parenthesis to closed parenthesis, inclusive
- *
- * @param {ObjectArray} parenthesesRange - Array containing start cursor and end cursor
- * @returns {undefined}
- */
-function highlightParen(parenthesesRange) {
-    var startLine = parenthesesRange[0].lineNumber;
-    var startColumn = parenthesesRange[0].column;
-    var endLine = parenthesesRange[1].lineNumber;
-    var endColumn = parenthesesRange[1].column;
-    condDecorations = editor.deltaDecorations([], [
-        {
-            range: new monaco.Range(startLine, startColumn + 1, endLine, endColumn),
-            options: { isWholeLine: false, className: "conditionalHighlight" }
-        }
-    ]);
-    highlightedParen = true;
-}
-
-/**
- * Unhighlights range from opening to closed parentheses
- *
- * @returns {undefined}
- */
-function unhighlightParen() {
-    condDecorations = editor.deltaDecorations(condDecorations, []);
-    highlightedParen = false;
-}
-
-// TEXT EDITING CODE
 
 /**
  * Find the closest shared parent between multiple cursors.
@@ -464,18 +933,21 @@ function findClosestCommonParent(ast, cursors, nodeTypes) {
     estraverse.traverse(ast.program, {
         enter: function (node) {
             var numNodesCommonParent = 0;
+            var nodeCursors = getNodeLoc(node);
+            var startCursor = nodeCursors[0];
+            var endCursor = nodeCursors[1];
             for (var i = 0; i < cursors.length; i++) {
-                if (node.loc.start.line > cursors[i].lineNumber) {
+                if (startCursor.lineNumber > cursors[i].lineNumber) {
                     this.break();
                 }
-                if (node.loc.start.line <= cursors[i].lineNumber && node.loc.end.line >= cursors[i].lineNumber) {
+                if (startCursor.lineNumber <= cursors[i].lineNumber && endCursor.lineNumber >= cursors[i].lineNumber) {
                     if (nodeTypes.includes(node.type)) {
-                        if (node.loc.start.line === cursors[i].lineNumber) {
-                            if (node.loc.start.column <= cursors[i].column) {
+                        if (startCursor.lineNumber === cursors[i].lineNumber) {
+                            if (startCursor.column <= cursors[i].column) {
                                 numNodesCommonParent++;
                             }
-                        } else if (node.loc.end.line === cursors[i].lineNumber) {
-                            if (node.loc.end.column > cursors[i].column) {
+                        } else if (endCursor.lineNumber === cursors[i].lineNumber) {
+                            if (endCursor.column > cursors[i].column) {
                                 numNodesCommonParent++;
                             }
                         } else {
@@ -509,6 +981,54 @@ function findClosestParent(ast, cursor, nodeTypes) {
 }
 
 /**
+ * Find the smallest span of siblings that contain both cursors
+ *
+ * @param {AST} ast - The root of the AST to search through.
+ * @param {[Cursor]} cursors - A list of cursors.
+ * @returns {[Cursor]} - A list of two cursors that span sibling nodes.
+ */
+function findClosestSiblingCursors(ast, cursors) {
+    var parentNode = findClosestCommonParent(ast, cursors, ["BlockStatement", "Program"]);
+    // find the smallest span of siblings that contain both cursors
+    var body = parentNode.body;
+    var i = null;
+    var nodeCursors = null;
+    // find start location
+    var startCursor = null;
+    for (i = 0; i < body.length; i++) {
+        nodeCursors = getNodeLoc(body[i]);
+        if (isBefore(cursors[0], nodeCursors[0])) {
+            if (i === 0) {
+                startCursor = makeCursor(1, 0);
+            } else {
+                startCursor = makeCursor(getNodeLoc(body[i - 1])[1].lineNumber + 1, 0);
+            }
+            break;
+        } else if (isBefore(cursors[0], nodeCursors[1])) {
+            startCursor = makeCursor(nodeCursors[0].lineNumber, 0);
+            break;
+        }
+    }
+    // find end location
+    var endCursor = null;
+    for (i = body.length - 1; i >= 0; i--) {
+        nodeCursors = getNodeLoc(body[i]);
+        if (isBefore(cursors[1], nodeCursors[0])) {
+            if (i === 0) {
+                endCursor = makeCursor(1, Infinity);
+            } else {
+                endCursor = copyCursor(getNodeLoc(body[i - 1])[1]);
+            }
+            break;
+        } else if (isBefore(cursors[1], nodeCursors[1])) {
+            endCursor = copyCursor(nodeCursors[1]);
+            break;
+        }
+    }
+    return [startCursor, endCursor];
+}
+
+/**
  * Find the closest parent node that is able to be deleted.
  *
  * @param {AST} ast - The root of the AST to search through.
@@ -521,18 +1041,21 @@ function findClosestCommonDeletableBlock(ast, cursors, nodeTypes) {
     estraverse.traverse(ast.program, {
         enter: function (node) {
             var numNodesCommonParent = 0;
+            var nodeCursors = getNodeLoc(node);
+            var startCursor = nodeCursors[0];
+            var endCursor = nodeCursors[1];
             for (var i = 0; i < cursors.length; i++) {
-                if (node.loc.start.line > cursors[i].lineNumber) {
+                if (startCursor.lineNumber > cursors[i].lineNumber) {
                     this.break();
                 }
-                if (node.loc.start.line <= cursors[i].lineNumber && node.loc.end.line >= cursors[i].lineNumber) {
+                if (startCursor.lineNumber <= cursors[i].lineNumber && endCursor.lineNumber >= cursors[i].lineNumber) {
                     if (nodeTypes.includes(node.type)) {
-                        if (node.loc.start.line === cursors[i].lineNumber) {
-                            if (node.loc.start.column <= cursors[i].column) {
+                        if (startCursor.lineNumber === cursors[i].lineNumber) {
+                            if (startCursor.column <= cursors[i].column) {
                                 numNodesCommonParent++;
                             }
-                        } else if (node.loc.end.line === cursors[i].lineNumber) {
-                            if (node.loc.end.column >= cursors[i].column) {
+                        } else if (endCursor.lineNumber === cursors[i].lineNumber) {
+                            if (endCursor.column >= cursors[i].column) {
                                 numNodesCommonParent++;
                             }
                         } else {
@@ -578,17 +1101,20 @@ function findPreviousSibling(ast, cursor) {
     for (var i = 0; i < parentNode.body.length; i++) {
         // make node the ith node in the body
         var node = parentNode.body[i];
+        var nodeCursors = getNodeLoc(node);
+        var startCursor = nodeCursors[0];
+        var endCursor = nodeCursors[1];
         // if the node is before the cursor ==> prevSibling
-        if (node.loc.end.line < cursor.lineNumber) {
+        if (endCursor.lineNumber < cursor.lineNumber) {
             prevSibling = node;
             // if node is same line as cursor
-        } else if (node.loc.end.line === cursor.lineNumber) {
+        } else if (endCursor.lineNumber === cursor.lineNumber) {
             // check if node ends before or at cursor
-            if (node.loc.end.column <= cursor.column) {
+            if (endCursor.column <= cursor.column) {
                 prevSibling = node;
             }
             // if node starts on line after cursor ==> break
-        } else if (node.loc.start.line > cursor.lineNumber) {
+        } else if (startCursor.lineNumber > cursor.lineNumber) {
             break;
         }
     }
@@ -607,8 +1133,10 @@ function cursorAtEndOfBlock(ast, cursor, nodeTypes) {
     var endOfBlock = false;
     estraverse.traverse(ast.program, {
         enter: function (node) {
+            var nodeCursors = getNodeLoc(node);
+            var endCursor = nodeCursors[1];
             if (nodeTypes.includes(node.type) &&
-                cursor.lineNumber === node.loc.end.line && cursor.column === node.loc.end.column) {
+                cursor.lineNumber === endCursor.lineNumber && cursor.column === endCursor.column) {
                 endOfBlock = true;
             }
         }
@@ -621,20 +1149,17 @@ function cursorAtEndOfBlock(ast, cursor, nodeTypes) {
  *
  * @param {AST} ast - The root of the ast to search through.
  * @param {Cursor} cursor - A lineNumber and column object.
+ * @param {[string]} nodeTypes - The AST nodes to detect.
  * @returns {boolean} Is cursor at beginning of block?
  */
-function cursorAtStartOfBlock(ast, cursor) {
+function cursorAtStartOfBlock(ast, cursor, nodeTypes) {
     var begOfBlock = false;
     estraverse.traverse(ast.program, {
         enter: function (node) {
-            if ((node.type === "IfStatement" ||
-                node.type === "ForStatement" ||
-                node.type === "FunctionDeclaration" ||
-                node.type === "WhileStatement" ||
-                node.type === "VariableDeclaration" ||
-                node.type === "ExpressionStatement" ||
-                node.type === "ReturnStatement") &&
-                cursor.lineNumber === node.loc.start.line && cursor.column === node.loc.start.column) {
+            var nodeCursors = getNodeLoc(node);
+            var startCursor = nodeCursors[0];
+            if (nodeTypes.includes(node.type) &&
+                cursor.lineNumber === startCursor.lineNumber && cursor.column === startCursor.column) {
                 begOfBlock = true;
             }
         }
@@ -642,127 +1167,11 @@ function cursorAtStartOfBlock(ast, cursor) {
     return begOfBlock;
 }
 
-// DELETING FUNCTIONS
-
-/**
- * Delete selected text
+/**************************************
  *
- * @param {AST} ast - The root of the ast to delete from.
- * @param {[Cursor]} selection - List of start and end Cursors.
- * @returns {string} buffer
- */
-function deleteSelected(ast, selection) {
-    var node = null;
-    if (findClosestDeletableBlock(ast, selection[0]) === findClosestDeletableBlock(ast, selection[1])) {
-        node = findClosestDeletableBlock(ast, selection[0]);
-    } else {
-        node = findClosestCommonDeletableBlock(ast, selection, BLOCK_DELETE_TYPES);
-    }
-    return node;
-}
-
-/**
- * Delete a node
+ * SECTION: TEXT EDITING
  *
- * @param {AST} ast - The parsed text.
- * @param {node} node - The node to delete.
- * @returns {string} Text with block removed
- */
-function deleteBlock(ast, node) {
-    estraverse.replace(ast.program, {
-        leave: function (currentNode) {
-            if (currentNode === node) {
-                this.remove();
-            }
-        }
-    });
-    return recast.print(ast).code;
-}
-
-/**
- * Backspace a character
- *
- * @param {string} buffer - A string of text from the editor.
- * @param {Cursor} cursor - A lineNumber and column object.
- * @returns {string} Updated buffer text
- */
-function backspaceChar(buffer, cursor) {
-    var beginCursor = makeCursor(cursor.lineNumber, cursor.column - 1);
-    var sections = splitAtCursors(buffer, [beginCursor, cursor]);
-    return [sections[0], sections[2]].join("");
-}
-
-/**
- * Delete a character
- *
- * @param {string} buffer - A string of text from the editor.
- * @param {Cursor} cursor - A lineNumber and column object.
- * @returns {string} Updated buffer text
- */
-function deleteChar(buffer, cursor) {
-    var endCursor = makeCursor(cursor.lineNumber, cursor.column + 1);
-    var sections = splitAtCursors(buffer, [cursor, endCursor]);
-    return [sections[0], sections[2]].join("");
-}
-
-// ADDING FUNCTIONS
-
-/**
- * Add a block based on button keyword
- *
- * @param {string} template - A string of block of text to add.
- * @param {AST} ast - Parsed text from the editor.
- * @param {Cursor} cursor - The line and column of the cursor.
- * @returns {buffer} Updated text string
- */
-function addBlock(template, ast, cursor) {
-    var prevSibling = findPreviousSibling(ast, cursor);
-    var parentNode = null;
-    if (prevSibling) {
-        var pos = makeCursor(prevSibling.loc.start.line, prevSibling.loc.start.column);
-        parentNode = findClosestParent(ast, pos, ["BlockStatement", "Program"]);
-    } else {
-        parentNode = findClosestParent(ast, cursor, ["BlockStatement", "Program"]);
-    }
-    // parse template
-    var parsedTemplate = attemptParse(template);
-    // parentNode should be pointer, so just append
-    var index = parentNode.body.indexOf(prevSibling);
-    parentNode.body.splice(index + 1, 0, parsedTemplate.program.body[0]);
-    // update editor state
-    updateEditorState();
-    // return buffer
-    return recast.print(ast).code;
-}
-
-// BUFFER MANIPULATION FUNCTIONS
-
-/**
- * Test if a cursor is between two others, exclusive.
- *
- * Note that this function deliberately breaks the rules of standard indexes -
- * inclusive of the starting index and exclusive of the ending index. This is
- * because text editing cursors do not work this way. If a pair of parentheses
- * are at indexes 5 and 15, a cursor at index 5 would be *within* that range
- * despite being *before* the starting parenthesis. The hope is to force
- * callers of this function to think through their cursor indices.
- *
- * @param {Cursor} cursor - the cursor to test.
- * @param {Cursor} startCursor - the cursor marking the beginning of a region.
- * @param {Cursor} endCursor - the cursor marking the end of a region.
- * @returns {boolean} - True if the cursor is between the other two.
- */
-function isBetweenCursors(cursor, startCursor, endCursor) {
-    var afterStart = (
-        (cursor.lineNumber > startCursor.lineNumber) || (
-            (cursor.lineNumber === startCursor.lineNumber) &&
-            (cursor.column > startCursor.column)));
-    var beforeEnd = (
-        (cursor.lineNumber < endCursor.lineNumber) || (
-            (cursor.lineNumber === endCursor.lineNumber) &&
-            (cursor.column < endCursor.column)));
-    return afterStart && beforeEnd;
-}
+ **************************************/
 
 /**
  * Check if a selection spans a protected punctuation.
@@ -833,14 +1242,12 @@ function getSurroundingProtectedParen(buffer, ast, cursor) {
     }
     var line = null;
     var found = null;
-    var col = null;
     // start at the beginning and move forwards to the first open parenthesis
-    var startCursor = closestParent.loc.start;
+    var startCursor = getNodeLoc(closestParent)[0];
     found = false;
-    line = buffer.split("\n")[startCursor.line - 1];
-    for (col = startCursor.column; col <= line.length; col++) {
-        if (line.charAt(col) === "(") {
-            startCursor = makeCursor(startCursor.line, col);
+    line = buffer.split("\n")[startCursor.lineNumber - 1];
+    for (; startCursor.column <= line.length; startCursor.column++) {
+        if (line.charAt(startCursor.column) === "(") {
             found = true;
             break;
         }
@@ -851,15 +1258,15 @@ function getSurroundingProtectedParen(buffer, ast, cursor) {
     // start at the brace and move backwards to the first close parenthesis
     var endCursor = null;
     if (closestParent.type === "IfStatement") {
-        endCursor = closestParent.consequent.loc.start;
+        endCursor = getNodeLoc(closestParent.consequent)[0];
     } else {
-        endCursor = closestParent.body.loc.start;
+        endCursor = getNodeLoc(closestParent.body)[0];
     }
     found = false;
-    line = buffer.split("\n")[endCursor.line - 1];
-    for (col = endCursor.column; col >= 0; col--) {
-        if (line.charAt(col) === ")") {
-            endCursor = makeCursor(endCursor.line, col + 1);
+    line = buffer.split("\n")[endCursor.lineNumber - 1];
+    //for (col = endCursor.column; col >= 0; col--) {
+    for (; endCursor.column >= 0; endCursor.column--) {
+        if (line.charAt(endCursor.column - 1) === ")") {
             found = true;
             break;
         }
@@ -869,7 +1276,7 @@ function getSurroundingProtectedParen(buffer, ast, cursor) {
     }
     // return the parenthesis cursors if they contain the cursor
     if (isBetweenCursors(cursor, startCursor, endCursor)) {
-        return [startCursor, endCursor];
+        return [copyCursor(startCursor), copyCursor(endCursor)];
     } else {
         return null;
     }
@@ -891,10 +1298,9 @@ function getSurroundingProtectedBrace(buffer, ast, cursor) {
         return null;
     }
     // convert to Cursor object
-    var startCursor = closestParent.loc.start;
-    startCursor = makeCursor(startCursor.line, startCursor.column);
-    var endCursor = closestParent.loc.end;
-    endCursor = makeCursor(endCursor.line, endCursor.column);
+    var nodeCursor = getNodeLoc(closestParent);
+    var startCursor = nodeCursor[0];
+    var endCursor = nodeCursor[1];
     if (isBetweenCursors(cursor, startCursor, endCursor)) {
         return [startCursor, endCursor];
     } else {
@@ -904,35 +1310,35 @@ function getSurroundingProtectedBrace(buffer, ast, cursor) {
 
 /**
  * Split a string into sections delimited by Cursors.
- * 
+ *
  * @param {string} buffer - A string of text from the editor.
  * @param {[Cursor]} cursors - Non-empty list of cursors.
  * @returns {[string]} - List of sections of the original string.
  */
 function splitAtCursors(buffer, cursors) {
     var positions = [];
-    var cursors_index = 0;
+    var cursorsIndex = 0;
     // augment positions with a fake cursor at the start
     positions.push(0);
     // deal with cursors before the start of the string
-    while (cursors[cursors_index].lineNumber < 1) {
+    while (cursors[cursorsIndex].lineNumber < 1) {
         positions.push(0);
-        cursors_index++;
+        cursorsIndex++;
     }
     // convert all cursors to character positions
     var lines = buffer.split("\n");
-    var line_num = 0;
-    var num_characters = 0;
-    for (; cursors_index < cursors.length; cursors_index++) {
-        var cursor = cursors[cursors_index];
+    var lineNum = 0;
+    var numCharacters = 0;
+    for (; cursorsIndex < cursors.length; cursorsIndex++) {
+        var cursor = cursors[cursorsIndex];
         // add non-cursor lines to the current section
-        while (line_num < lines.length && line_num + 1 < cursor.lineNumber) {
-            num_characters += lines[line_num].length + 1;
-            line_num++;
+        while (lineNum < lines.length && lineNum + 1 < cursor.lineNumber) {
+            numCharacters += lines[lineNum].length + 1;
+            lineNum++;
         }
         // add the cursor position to the list
-        if (num_characters + cursor.column < buffer.length) {
-            positions.push(num_characters + cursor.column);
+        if (numCharacters + cursor.column < buffer.length) {
+            positions.push(numCharacters + cursor.column);
         } else {
             positions.push(buffer.length);
         }
@@ -947,126 +1353,6 @@ function splitAtCursors(buffer, cursors) {
     return sections;
 }
 
-/**
- * Callback function whenever the cursor moves.
- *
- * @param {Event} e - the cursor movement event.
- * @returns {undefined}
- */
-function onDidChangeCursorSelection(e) { // eslint-disable-line no-unused-vars
-
-    /*
-    console.log("ondidchangecursorselection");
-    console.log("    source:", e.source);
-    console.log("    reason:", e.reason);
-    var selection = e.selection;
-    console.log("    [" +
-        selection.startLineNumber
-        + ":" + 
-        selection.startColumn
-        + ", " + 
-        selection.endLineNumber
-        + ":" + 
-        selection.endColumn
-        + "]"
-    );
-    */
-    if (highlighted) {
-        unhighlight();
-    }
-    if (e.source === "mouse") {
-        updateEditorState();
-    } else if (e.source === "keyboard") {
-        if (e.reason === 4) { // pasted
-            if (editorState.hasSelected) {
-                onRangeReplace();
-            } else {
-                onPointInsert();
-            }
-        } else if (e.reason === 3) { // arrow key movement
-            updateEditorState();
-        } else if (e.reason === 0) { // cut or type
-            if (!editorState.hasSelected) { // typed at cursor
-                onPointInsert();
-            } else {
-                var sections = splitAtCursors(editorState.parsableText, editorState.cursor);
-                if (editor.getValue().length > sections[0].length + sections[2].length) {
-                    onRangeReplace(); // typed over range
-                } else {
-                    onRangeDelete(); // cut
-                }
-            }
-        }
-    }
-}
-
-/**
- * Attempt to parse JavaScript code.
- *
- * @param {string} text - The text to parse.
- * @returns {AST} - The parsed AST, or null if unparsable.
- */
-function attemptParse(text) {
-    try {
-        console.log("parse succeeded!"); // eslint-disable-line no-console
-        return recast.parse(text);
-    } catch (e) {
-        console.log("parse failed!"); // eslint-disable-line no-console
-        return null;
-    }
-}
-
-/**
- * Update the editor state.
- *
- * @returns {undefined}
- */
-function updateEditorState() {
-    var buffer = editor.getValue();
-    var ast = attemptParse(buffer);
-    var cursor = getCursor();
-    if (ast) {
-        if (highlightedParen) {
-            unhighlightParen();
-        }
-        editorState.parsable = true;
-        editorState.parse = ast;
-        editorState.parsableText = buffer;
-        document.getElementById("parseButton").disabled = true;
-        // save positions of parentheses
-        var parentheses = getSurroundingProtectedParen(buffer, ast, cursor);
-        editorState.parentheses = parentheses;
-        if (parentheses) {
-            editorState.openParenthesis = positionFromStart(buffer, parentheses[0]);
-            editorState.closeParenthesis = positionFromEnd(buffer, parentheses[1]);
-        } else {
-            editorState.openParenthesis = null;
-            editorState.closeParenthesis = null;
-        }
-        var selected = getSelected();
-        if (selected) {
-            editorState.hasSelected = true;
-            editorState.cursor = selected;
-            editorState.sections = splitAtCursors(buffer, selected);
-        } else {
-            editorState.hasSelected = false;
-            editorState.cursor = getCursor();
-            editorState.sections = splitAtCursors(buffer, [editorState.cursor]);
-        }
-    } else { 
-        editorState.parsable = false;
-        // if on same line
-        if (cursor.lineNumber == editorState.cursor.lineNumber) {
-            if (editorState.parentheses) {
-                if (highlightedParen) {
-                    unhighlightParen();
-                }
-                highlightParen(editorState.parentheses);
-            }
-        }
-        document.getElementById("parseButton").disabled = false;
-    }
-}
 /**
  * Gets the character position of cursor from beginning of buffer
  *
@@ -1093,15 +1379,252 @@ function positionFromStart(buffer, cursor) {
  * @returns {string} Position of cursor from end of buffer
  */
 function positionFromEnd(buffer, cursor) {
-    var splitBuffer = buffer.split("\n");        
-    var lastPart = splitBuffer.slice(cursor.lineNumber); 
-    var sameLine = splitBuffer.slice(cursor.lineNumber - 1, cursor.lineNumber).join(""); 
-    sameLine = sameLine.split("");               
+    var splitBuffer = buffer.split("\n");
+    var lastPart = splitBuffer.slice(cursor.lineNumber);
+    var sameLine = splitBuffer.slice(cursor.lineNumber - 1, cursor.lineNumber).join("");
+    sameLine = sameLine.split("");
     sameLine = sameLine.slice(cursor.column).join("");
-    lastPart.unshift(sameLine);                                
+    lastPart.unshift(sameLine);
 
     return lastPart.join("").length;
 }
+
+/**
+ * Get a cursor at the last position of a string.
+ *
+ * @param {string} text - the string
+ * @returns {Cursor} - the cursor
+ */
+function getLastCursor(text) {
+    var lines = text.split("\n");
+    var numLines = lines.length;
+    return makeCursor(numLines, lines[numLines - 1].length);
+}
+
+/**
+ * Get a specific line from a string.
+ *
+ * @param {string} text - the string
+ * @param {int} lineIndex - the line index
+ * @returns {string} - the line
+ */
+function getLine(text, lineIndex) {
+    var lines = text.split("\n");
+    if (lineIndex < 0) {
+        lineIndex = lines.length + lineIndex;
+    }
+    return lines[lineIndex];
+}
+
+/**************************************
+ *
+ * SECTION: CLASSES
+ *
+ **************************************/
+
+function makeMonacoState(text, cursors, editableRegion) {
+    var ast = attemptParse(text);
+    return {
+        text: text,
+        parse: ast,
+        selection: (copySelection(cursors) if cursors.length === 2 else null),
+        cursor: (copyCursor(cursors[0]) if cursors.length === 1 else null),
+        editableRegion: copySelection(editableRegion),
+    };
+}
+
+function copyMonacoState(state) {
+    return makeMonacoState(
+        state.text,
+        (state.selection if state.selection else state.cursor),
+        copystate.editable
+    );
+}
+
+function getCurrentMonacoState(editableRegion) {
+    var buffer = editor.getValue();
+    var cursors = getSelection();
+    if (cursors === null) {
+        cursors = [getCursor()],
+    }
+    return makeMonacoState(buffer, cursors, copySelection(editableRegion));
+}
+
+function applyMonacoState(state) {
+    // FIXME might need an "undoable" setting
+    setValue(state.text);
+    if (state.selection) {
+        setSelection(state.selection);
+    } else {
+        setCursor(state.cursor);
+    }
+}
+
+function copySelection(selection) {
+    return [
+        copyCursor(selection[0]),
+        copyCursor(selection[1]),
+    ];
+}
+
+/**
+ * Make a Cursor object.
+ *
+ * @param {int} line - The line number.
+ * @param {int} col - The column number.
+ * @returns {Cursor} - The Cursor object.
+ */
+function makeCursor(line, col) {
+    if (line < 1) {
+        throw "line must be a positive integer, but got " + col;
+    }
+    return { "lineNumber": line, "column": col };
+}
+
+/**
+ * Copy a Cursor object.
+ *
+ * @param {Cursor} cursor - The Cursor object.
+ * @returns {Cursor} - The cloned Cursor object.
+ */
+function copyCursor(cursor) {
+    return makeCursor(cursor.lineNumber, cursor.column);
+}
+
+/**
+ * Test if a cursor is between two others, exclusive.
+ *
+ * Note that this function deliberately breaks the rules of standard indexes
+ * (ie. it is NOT inclusive of the starting index and exclusive of the ending
+ * index. This is because text editing cursors do not work this way. If a pair
+ * of parentheses are at indexes 5 and 15, a cursor at index 5 would be
+ * *within* that range despite being *before* the starting parenthesis. The
+ * hope is to force callers of this function to think through their cursor
+ * indices.
+ *
+ * @param {Cursor} cursor - the cursor to test.
+ * @param {Cursor} startCursor - the cursor marking the beginning of a region.
+ * @param {Cursor} endCursor - the cursor marking the end of a region.
+ * @returns {boolean} - True if the cursor is between the other two.
+ */
+function isBetweenCursors(cursor, startCursor, endCursor) {
+    return isAfter(cursor, startCursor) && isBefore(cursor, endCursor);
+}
+
+/**
+ * Determine if a cursor is strictly before another.
+ *
+ * @param {Cursor} cursor1 - The first cursor.
+ * @param {Cursor} cursor2 - The second cursor.
+ * @returns {boolean} - True if the first cursor is before the second.
+ */
+function isBefore(cursor1, cursor2) {
+    return (cursor1.lineNumber < cursor2.lineNumber) || (
+        (cursor1.lineNumber === cursor2.lineNumber) &&
+        (cursor1.column < cursor2.column));
+}
+
+/**
+ * Determine if a cursor is strictly after another.
+ *
+ * @param {Cursor} cursor1 - The first cursor.
+ * @param {Cursor} cursor2 - The second cursor.
+ * @returns {boolean} - True if the first cursor is after the second.
+ */
+function isAfter(cursor1, cursor2) {
+    return (cursor1.lineNumber > cursor2.lineNumber) || (
+        (cursor1.lineNumber === cursor2.lineNumber) &&
+        (cursor1.column > cursor2.column));
+}
+
+/**************************************
+ *
+ * SECTION: EDITOR WRAPPER
+ *
+ **************************************/
+
+/**
+ * Get the cursor in the editor.
+ *
+ * Note monaco line number starts at 0, while recast line number starts at 1.
+ * The result of this function, and all functions here, follow the recast
+ * numbering.
+ *
+ * @returns {Cursor} - The line and column of the cursor in the editor.
+ */
+function getCursor() {
+    var cursor = editor.getPosition();
+    cursor.column = cursor.column - 1;
+    return makeCursor(cursor.lineNumber, cursor.column - 1);
+}
+
+/**
+ * Get the cursor in the editor.
+ *
+ * Note monaco line number starts at 0, while recast line number starts at 1.
+ * The input of this function follows the recast numbering.
+ *
+ * @param {Cursor} cursor - The line and column of the cursor.
+ * @returns {undefined}
+ */
+function setCursor(cursor) {
+    cursor.column = cursor.column + 1;
+    editor.setPosition(cursor);
+}
+
+/**
+ * Returns position of selection if selection exists.
+ *
+ * @returns {[Cursor]} - A list of two Cursors defining the selection.
+ */
+function getSelection() {
+    var selection = editor.getSelection();
+    selection = [
+        makeCursor(selection.startLineNumber, selection.startColumn - 1),
+        makeCursor(selection.endLineNumber, selection.endColumn - 1),
+    ];
+    if (selection[0].lineNumber !== selection[1].lineNumber
+        || selection[0].column !== selection[1].column) {
+        return selection;
+    } else {
+        return null;
+    }
+}
+
+/**
+ * Set the selection in the editor
+ *
+ * @param {Cursor} startCursor - the start of the selection
+ * @param {Cursor} endCursor - the end of the selection
+ * @returns {undefined}
+ */
+function setSelection(startCursor, endCursor) {
+    editor.setSelection({
+        "startLineNumber":startCursor.lineNumber,
+        "startColumn":startCursor.column + 1,
+        "endLineNumber":endCursor.lineNumber,
+        "endColumn":endCursor.column + 1,
+    });
+}
+
+/**
+ * Set value of editor using executeEdits to preserve undo stack
+ *
+ * @param {string} newBuffer - String replacing oldBuffer.
+ * @returns {undefined}
+ */
+function setValue(newBuffer) {
+    // get range of editor model
+    var range = editor.getModel().getFullModelRange();
+    // call execute edits on the editor
+    editor.executeEdits(editor.getValue(), [{ identifier: "insert", range: range, text: newBuffer }]);
+}
+
+/**************************************
+ *
+ * SECTION: EXPORTS
+ *
+ **************************************/
 
 // Attempt to export the module for testing purposes. If we get a
 // ReferenceError on "module", assume we're running a browser and ignore it.

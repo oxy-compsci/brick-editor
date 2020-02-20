@@ -1,4 +1,4 @@
-/* global require, monaco, editor, deleteHandler, backspaceHandler, onDidChangeCursorSelection, blockDict */
+/* global require, monaco, editor, deleteHandler, backspaceHandler, onDidChangeCursorSelection, blockDict, updateEditorState */
 
 // create monaco editor
 require.config({
@@ -84,4 +84,6 @@ require(["vs/editor/editor.main"], function () {
     editor.addCommand(monaco.KeyCode.Backspace, backspaceHandler);
     editor.addCommand(monaco.KeyCode.Delete, deleteHandler);
     editor.onDidChangeCursorSelection(onDidChangeCursorSelection);
+
+    updateEditorState();
 });
